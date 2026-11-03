@@ -22,3 +22,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Create Account](create-account.md): application coordination of ID generation,
   domain construction, and create-only storage. Implemented with application
   unit tests; concrete generators and storage adapters remain out of scope.
+- [PostgreSQL Account Storage](postgres-accounts.md): migrations, create-only
+  persistence, conflict handling, and opt-in database tests. Draft for review;
+  no tests or implementation yet.
