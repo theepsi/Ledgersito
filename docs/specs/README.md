@@ -20,5 +20,5 @@ smallest correct behavior, and refactor with passing tests.
 - [Accounts](accounts.md): supplied IDs, identity validation, and zero SITO
   opening balances. Implemented with domain unit tests.
 - [Create Account](create-account.md): application coordination of ID generation,
-  domain construction, and create-only storage. Draft for review; no tests or
-  implementation yet.
+  domain construction, and create-only storage. Implemented with application
+  unit tests; concrete generators and storage adapters remain out of scope.

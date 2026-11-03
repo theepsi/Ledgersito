@@ -78,4 +78,5 @@ These tests need neither Docker nor PostgreSQL.
 - HTTP endpoints, status codes, and request idempotency.
 - Automatic retries, compensation, and recovery after uncertain saves.
 - Funding, balance changes, ledger entries, or transfers.
+- Account names; these are planned for a later spec.
 - Broader request cancellation and timeout policies.

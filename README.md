@@ -10,14 +10,15 @@ review. It is provided as is, without warranty; see [LICENSE](LICENSE).
 
 ## Current state
 
-The project foundation and tested Money and Account domain types are in place.
-There is no runnable API, database schema, or ledger implementation yet.
-Features are specified and developed one at a time using spec-first TDD.
+The project foundation, Money and Account domain types, and Create Account
+application use case are in place with unit tests. There is no runnable API,
+database schema, or ledger implementation yet. Features are specified and
+developed one at a time using spec-first TDD.
 
-Run the domain tests without Docker:
+Run the domain and application tests without Docker:
 
 ```sh
-go test -v ./internal/domain/...
+go test -v ./internal/domain/... ./internal/application/...
 ```
 
 - [Local setup](docs/SETUP.md)
