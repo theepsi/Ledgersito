@@ -17,3 +17,5 @@ smallest correct behavior, and refactor with passing tests.
 
 - [Money](money.md): exact signed SITO amounts, addition, subtraction, and
   overflow errors. Implemented with domain unit tests.
+- [Accounts](accounts.md): supplied IDs, identity validation, and zero SITO
+  opening balances. Draft for review; no tests or implementation yet.
