@@ -11,9 +11,10 @@ review. It is provided as is, without warranty; see [LICENSE](LICENSE).
 ## Current state
 
 The project foundation, Money and Account domain types, and Create Account
-application use case are in place with unit tests. There is no runnable API,
-database schema, or ledger implementation yet. Features are specified and
-developed one at a time using spec-first TDD.
+application use case are in place with unit tests. PostgreSQL account storage,
+its migration, and opt-in integration tests are also provided. There is no
+runnable API or transfer ledger yet. Features are specified and developed one
+at a time using spec-first TDD.
 
 Run the domain and application tests without Docker:
 
