@@ -10,9 +10,15 @@ review. It is provided as is, without warranty; see [LICENSE](LICENSE).
 
 ## Current state
 
-Only the project foundation exists. There is no runnable API, database schema,
-or ledger implementation yet. Features will be specified and developed one at
-a time using spec-first TDD.
+The project foundation and tested Money domain type are in place. There is no
+runnable API, database schema, or ledger implementation yet. Features are
+specified and developed one at a time using spec-first TDD.
+
+Run the Money tests without Docker:
+
+```sh
+go test -v ./internal/domain/money
+```
 
 - [Local setup](docs/SETUP.md)
 - [Architecture](docs/DESIGN.md)
