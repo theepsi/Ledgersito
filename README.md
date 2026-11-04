@@ -5,6 +5,9 @@
 Ledgersito explores Go and double-entry ledger correctness. It is not intended
 for commercial use, real-world deployments, or real money.
 There is no support or maintenance commitment; forks are welcome.
+Accounts are ledger accounts, not users or login identities. The planned
+`name` field is a non-unique human-readable label for learning and recognizing
+accounts; generated IDs identify accounts.
 The project has no authentication or authorization and has not had a security
 review. It is provided as is, without warranty; see [LICENSE](LICENSE).
 

@@ -27,4 +27,12 @@ smallest correct behavior, and refactor with passing tests.
   verified against PostgreSQL, including concurrent duplicate creation.
 - [Account Creation Idempotency](account-idempotency.md): agreed replay,
   normalized request identity, and atomicity rules. Not implemented; HTTP
-  details and the nickname migration remain to be specified.
+  details and the account-name migration remain to be specified.
+- [Account Names](account-names.md): non-unique human-readable labels,
+  Unicode validation, and trimming. Not implemented; extends earlier specs.
+- [List Accounts](list-accounts.md): all accounts ordered by name then ID,
+  with explicit balance units. Not implemented; remaining HTTP details
+  and the account-name migration remain to be specified.
+- [Accounts HTTP API](accounts-http.md): agreed GET/POST response shapes,
+  strict POST JSON validation, and core error statuses. Not implemented;
+  operational limits and remaining HTTP details are still open.

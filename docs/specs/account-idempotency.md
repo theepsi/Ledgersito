@@ -6,7 +6,7 @@ Agreed behavior for safe account-creation retries. This extends
 [Create Account](create-account.md), whose original implementation has no
 idempotency support. No implementation of this extension exists yet.
 
-The HTTP contract, key validation, timeouts, and nickname schema migration
+The HTTP contract, key validation, timeouts, and account-name schema migration
 still need separate agreement before end-to-end implementation.
 
 ## Request identity
@@ -15,12 +15,11 @@ still need separate agreement before end-to-end implementation.
 - Keys are scoped to this operation and shared across callers because the
   project has no authenticated clients.
 - Compare validated, normalized request data, not raw JSON bytes.
-- The nickname is required: 3-30 ASCII letters, digits, or underscores,
-  starting with a letter. Normalize ASCII letters to lowercase.
-- `Dragon` and `dragon` identify the same creation payload. JSON whitespace
-  and formatting do not change request identity.
-- Nickname uniqueness is separate from operation identity. Two different keys
-  cannot create two accounts with the same normalized nickname.
+- The required `name` follows [Account Names](account-names.md): trim
+  surrounding whitespace, preserve case and internal spacing, and validate.
+- ` Savings ` and `Savings` identify the same creation payload. `Savings`
+  and `savings` do not. JSON formatting does not change request identity.
+- Names are non-unique labels, not user identities or duplicate detectors.
 - Renaming is outside this scope.
 
 ## Successful replay
@@ -38,15 +37,15 @@ still need separate agreement before end-to-end implementation.
   compare against its stored payload and replay or reject accordingly.
 - If the active transaction rolls back, it has not reserved the key. A waiting
   request can attempt creation with its own validated payload.
-- Different keys with the same normalized nickname produce one successful
-  creation and nickname conflicts for competing creations, not replays.
+- Different keys with the same name can create separate accounts. They
+  represent distinct operations, not replays.
 
 ## Atomicity and failures
 
 - Persist the account and successful replay record in one database
   transaction. They must commit together or neither is persisted.
-- Validation errors and nickname conflicts are not stored for replay and do
-  not reserve the attempted key.
+- Only successful creations are stored for replay. Validation errors and
+  failed creations do not reserve the attempted key.
 - Failures before commit roll back account and replay writes.
 - A timeout while waiting is not a successful creation or replay. It must not
   overwrite another request's record.
@@ -61,14 +60,14 @@ still need separate agreement before end-to-end implementation.
 
 | Scenario | Expected outcome |
 |---|---|
-| Same key, `Dragon` then `dragon` | One account; original successful status and body replayed |
+| Same key, ` Savings ` then `Savings` | One account; original successful status and body replayed |
+| Same committed key, `Savings` then `savings` | Key-reuse error; capitalization is preserved |
 | Same key, equivalent JSON formatting | Replay rather than a new account |
-| Same committed key, different normalized nickname | Key-reuse error; original records unchanged |
+| Same committed key, different trimmed name | Key-reuse error; original records unchanged |
 | Concurrent same-key, same-payload requests | Wait then replay; one account and one successful replay record |
 | Concurrent same-key, different-payload requests | After one commits, the competing payload is rejected |
-| Different keys, same normalized nickname | One account; remaining creations report nickname conflicts |
-| Invalid nickname followed by valid input with the same key | Invalid request does not reserve the key |
-| Nickname conflict | No new account or replay record for the attempted key |
+| Different keys, same name | Separate accounts, each with its own successful replay record |
+| Invalid name followed by valid input with the same key | Invalid request does not reserve the key |
 | Failure after account insert but before commit | Neither the account nor replay record survives |
 | Response lost after commit | Same-key retry returns the stored success |
 
@@ -82,4 +81,4 @@ eventually verify replay of the actual status and body.
 - Key expiry, retention cleanup, and rate limiting.
 - Replaying unsuccessful outcomes.
 - Applying idempotency to transfers before their own spec.
-- Listing accounts and nickname migration policy.
+- Listing accounts and account-name migration policy.

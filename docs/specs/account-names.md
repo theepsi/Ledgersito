@@ -1,0 +1,57 @@
+# Account Names
+
+## Status and purpose
+
+Agreed extension to the existing account domain and creation specs.
+Not implemented; migration of existing accounts still needs agreement.
+
+Accounts are ledger accounts, not users, registrations, or login identities.
+A name is a human-readable label for learning and recognizing accounts.
+It does not establish ownership or identify a person.
+
+## Rules
+
+- Require a string `name` at account creation.
+- Require valid Unicode text. Trim surrounding Unicode whitespace before
+  validating length and storing the name.
+- After trimming, require 1-100 Unicode code points, not bytes or visually
+  perceived characters.
+- Reject remaining Unicode control characters, including embedded tabs and
+  newlines.
+- Preserve capitalization, internal spaces, and other accepted characters.
+- Do not lowercase, collapse internal whitespace, or apply Unicode
+  normalization.
+- Names are not unique. Distinct accounts can both be named `Savings`.
+- The generated account ID remains the stable identity.
+- Renaming is outside this scope.
+
+For length and control-character rules, use Go's Unicode rune semantics and
+`unicode.IsControl`; trimming follows `strings.TrimSpace`.
+
+## Idempotency identity
+
+Compare the validated, trimmed name. JSON formatting does not matter.
+`" Savings "` and `"Savings"` are equivalent payloads; `"Savings"` and
+`"savings"` are different. Different internal spacing and different Unicode
+code-point sequences remain different, even if they look similar.
+
+Different keys with the same name can create separate accounts. A name is not
+a substitute for an idempotency key.
+
+## Acceptance examples
+
+| Supplied name | Expected outcome |
+|---|---|
+| `Savings` | Preserve exactly |
+| ` Savings ` | Store `Savings` |
+| `Dragon's savings` | Preserve capitalization and internal space |
+| `Game  rewards` | Preserve both internal spaces |
+| Non-ASCII text, such as `Caf\u00e9` interpreted as Unicode text | Accept and preserve |
+| Empty or whitespace-only string | Validation error |
+| 100 Unicode code points after trimming | Accept |
+| 101 Unicode code points after trimming | Validation error |
+| Embedded tab, newline, or NUL | Validation error |
+| Two creations named `Savings` with different keys | Distinct accounts |
+
+This extension supersedes the earlier account specs' exclusion of account
+names. It does not change ID validation, opening balances, or Money rules.
