@@ -18,12 +18,15 @@ application use case are in place with unit tests. PostgreSQL account storage,
 its migrations, and opt-in integration tests are also provided. The API exposes
 `POST /accounts` with idempotent creation and `GET /accounts` ordered by name
 then ID. Names are non-unique labels; balances use integer sititos.
-There is no transfer ledger yet. Features are specified and developed one at
-a time using spec-first TDD.
+`POST /transfers` moves existing funds atomically with balanced entries and
+idempotent retries. Features are specified and developed one at a time using
+spec-first TDD.
 
 Names and account-creation idempotency have passed database and manual API
 checks. One-time fixed-supply initialization has also passed its PostgreSQL
 integration checks.
+Transfers have passed unit and real-PostgreSQL integration checks, including
+concurrency, replay, rollback, and timeout scenarios.
 
 ## Fixed-supply learning scenario
 
@@ -38,9 +41,36 @@ account roles; new POST results include `"role":"ordinary"`. Old successful
 responses replay exactly as stored and may not include a role.
 
 The reservoir is a simulation policy, not gold backing, a blockchain, or a
-requirement of double-entry ledgers. Transfer behavior remains to be specified.
+requirement of double-entry ledgers. The reservoir only distributes to ordinary
+accounts; funds cannot return to it. Ordinary accounts can transfer among
+themselves, and no transfer may involve the origin.
 Apply migrations explicitly before running the command; migration 3 refuses
 rollback rather than destroy ledger history.
+
+## Transfers
+
+After applying migration 4 and explicitly initializing the ledger,
+`POST /transfers` accepts an `Idempotency-Key` and:
+
+```json
+{
+  "source_account_id": "system-reservoir",
+  "destination_account_id": "an-existing-ordinary-account-id",
+  "amount_sititos": 250
+}
+```
+
+Success returns 201 with the transfer ID, both account IDs, and
+`"amount":{"sititos":250,"currency":"SITO"}`. Use positive integer sititos;
+the source must have sufficient funds. Entries, balances, and the successful
+response commit together. Same-key retries return the exact original response
+without moving funds again. On timeout, retry with the same key: the outcome
+may already be committed. Transfer keys are separate from account-creation
+keys, and failed attempts do not reserve them.
+
+See the [transfer spec](docs/specs/transfers.md) for validation, errors, and
+concurrency guarantees. Migration 4 also refuses rollback to preserve replay
+history.
 
 Run the domain and application tests without Docker:
 

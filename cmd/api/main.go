@@ -18,6 +18,7 @@ import (
 	"github.com/theepsi/Ledgersito/internal/adapters/httpapi"
 	"github.com/theepsi/Ledgersito/internal/adapters/postgres"
 	"github.com/theepsi/Ledgersito/internal/application/accounts"
+	"github.com/theepsi/Ledgersito/internal/application/transfers"
 )
 
 type config struct {
@@ -60,9 +61,11 @@ func run(ctx context.Context, cfg config, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("database startup check failed: %w", err)
 	}
-	service := accounts.New(randomIDs{}, postgres.NewAPIStore(cfg.database))
+	store := postgres.NewAPIStore(cfg.database)
+	service := accounts.New(randomIDs{}, store)
+	transferService := transfers.New(randomIDs{}, store)
 	server := &http.Server{
-		Addr: cfg.address, Handler: httpapi.New(service, logger),
+		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, logger),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,

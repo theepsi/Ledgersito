@@ -24,8 +24,9 @@ type Service interface {
 }
 
 type Handler struct {
-	service Service
-	logger  *slog.Logger
+	service   Service
+	logger    *slog.Logger
+	transfers TransferService
 }
 
 func New(service Service, logger *slog.Logger) *Handler {
@@ -33,6 +34,10 @@ func New(service Service, logger *slog.Logger) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/transfers" && r.URL.RawPath == "" && h.transfers != nil {
+		h.serveTransfer(w, r)
+		return
+	}
 	if r.URL.Path != "/accounts" || r.URL.RawPath != "" {
 		h.failure(w, 404, "not_found", "Route not found.")
 		return
@@ -71,29 +76,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.write(w, 200, body)
 		return
 	}
-	keys := r.Header.Values("Idempotency-Key")
-	if len(keys) == 0 {
-		h.failure(w, 400, "missing_idempotency_key", "An Idempotency-Key is required.")
-		return
-	}
-	if len(keys) != 1 || !validKey(keys[0]) {
-		h.failure(w, 400, "invalid_idempotency_key", "Provide one key of 1-128 ASCII letters, digits, hyphens, or underscores.")
-		return
-	}
-	mediaValues := r.Header.Values("Content-Type")
-	if len(mediaValues) != 1 || !validMedia(mediaValues[0]) {
-		h.failure(w, 415, "unsupported_media_type", "Content-Type must be application/json with optional UTF-8 charset.")
-		return
-	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
-	if err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			h.failure(w, 413, "request_too_large", "Request body exceeds 4096 bytes.")
-		} else {
-			h.logger.Warn("read request body failed", "error", err)
-			h.failure(w, 400, "invalid_request", "Unable to read request body.")
-		}
+	body, key, ok := h.readPost(w, r)
+	if !ok {
 		return
 	}
 	name, err := decodeName(body)
@@ -106,7 +90,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, 400, "invalid_name", "Name must contain 1-100 Unicode code points after trimming, without control characters.")
 		return
 	}
-	reply, err := h.service.Create(ctx, keys[0], name)
+	reply, err := h.service.Create(ctx, key, name)
 	if err != nil {
 		h.applicationError(w, ctx, err)
 		return
@@ -116,6 +100,35 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.write(w, reply.Status, reply.Body)
+}
+
+func (h *Handler) readPost(w http.ResponseWriter, r *http.Request) ([]byte, string, bool) {
+	keys := r.Header.Values("Idempotency-Key")
+	if len(keys) == 0 {
+		h.failure(w, 400, "missing_idempotency_key", "An Idempotency-Key is required.")
+		return nil, "", false
+	}
+	if len(keys) != 1 || !validKey(keys[0]) {
+		h.failure(w, 400, "invalid_idempotency_key", "Provide one key of 1-128 ASCII letters, digits, hyphens, or underscores.")
+		return nil, "", false
+	}
+	mediaValues := r.Header.Values("Content-Type")
+	if len(mediaValues) != 1 || !validMedia(mediaValues[0]) {
+		h.failure(w, 415, "unsupported_media_type", "Content-Type must be application/json with optional UTF-8 charset.")
+		return nil, "", false
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			h.failure(w, 413, "request_too_large", "Request body exceeds 4096 bytes.")
+		} else {
+			h.logger.Warn("read request body failed", "error", err)
+			h.failure(w, 400, "invalid_request", "Unable to read request body.")
+		}
+		return nil, "", false
+	}
+	return body, keys[0], true
 }
 
 func validKey(key string) bool {
@@ -146,39 +159,68 @@ func validMedia(value string) bool {
 }
 
 func decodeName(body []byte) (string, error) {
-	invalid := errors.New("invalid account JSON")
+	fields, err := decodeObject(body, "name")
+	if err != nil {
+		return "", err
+	}
+	return decodeString(fields["name"])
+}
+
+func decodeString(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || raw[0] != '"' || !validSurrogates(raw) {
+		return "", errors.New("invalid JSON string")
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+func decodeObject(body []byte, names ...string) (map[string]json.RawMessage, error) {
+	invalid := errors.New("invalid JSON object")
 	if !utf8.Valid(body) {
-		return "", invalid
+		return nil, invalid
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	token, err := decoder.Token()
-	if err != nil || token != json.Delim('{') || !decoder.More() {
-		return "", invalid
+	if err != nil || token != json.Delim('{') {
+		return nil, invalid
+	}
+	fields := make(map[string]json.RawMessage, len(names))
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, invalid
+		}
+		name, ok := token.(string)
+		allowed := false
+		for _, expected := range names {
+			if name == expected {
+				allowed = true
+			}
+		}
+		if !ok || !allowed || fields[name] != nil {
+			return nil, invalid
+		}
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return nil, invalid
+		}
+		fields[name] = raw
 	}
 	token, err = decoder.Token()
-	if err != nil || token != "name" {
-		return "", invalid
-	}
-	var raw json.RawMessage
-	if err := decoder.Decode(&raw); err != nil || len(raw) == 0 || raw[0] != '"' || !validSurrogates(raw) {
-		return "", invalid
-	}
-	var name string
-	if err := json.Unmarshal(raw, &name); err != nil || decoder.More() {
-		return "", invalid
-	}
-	token, err = decoder.Token()
-	if err != nil || token != json.Delim('}') {
-		return "", invalid
+	if err != nil || token != json.Delim('}') || len(fields) != len(names) {
+		return nil, invalid
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		return "", invalid
+		return nil, invalid
 	}
-	return name, nil
+	return fields, nil
 }
 
 // encoding/json replaces unpaired UTF-16 surrogates; reject them instead of
-// silently changing the name used for idempotency.
+// silently changing strings used for idempotency.
 func validSurrogates(raw []byte) bool {
 	for i := 1; i < len(raw)-1; i++ {
 		if raw[i] != '\\' {

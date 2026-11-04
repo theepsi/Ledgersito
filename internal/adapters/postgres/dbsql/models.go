@@ -40,3 +40,12 @@ type LedgerTransaction struct {
 	Reference string
 	Posted    bool
 }
+
+type TransferReplay struct {
+	Key                  string
+	SourceAccountID      string
+	DestinationAccountID string
+	Amount               int64
+	StatusCode           pgtype.Int4
+	ResponseBody         []byte
+}

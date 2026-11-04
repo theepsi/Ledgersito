@@ -27,8 +27,8 @@ type Account struct {
 }
 
 func New(id, name string) (Account, error) {
-	if id == "" || strings.ContainsFunc(id, unicode.IsSpace) {
-		return Account{}, ErrInvalidID
+	if err := ValidateID(id); err != nil {
+		return Account{}, err
 	}
 
 	name, err := NormalizeName(name)
@@ -36,6 +36,13 @@ func New(id, name string) (Account, error) {
 		return Account{}, err
 	}
 	return Account{id: id, name: name, balance: money.New(0)}, nil
+}
+
+func ValidateID(id string) error {
+	if id == "" || strings.ContainsFunc(id, unicode.IsSpace) {
+		return ErrInvalidID
+	}
+	return nil
 }
 
 func NormalizeName(name string) (string, error) {

@@ -3,7 +3,9 @@
 ## Status and purpose
 
 Approved, including core rules, retry behavior, HTTP contract, input validation,
-error precedence, and acceptance scenarios. Not implemented.
+error precedence, and acceptance scenarios. Implemented and verified against
+PostgreSQL. The user ran migration 4 and the integration checks; after fixing
+the lock-observer test, its targeted rerun passed five consecutive times.
 
 Move existing fictional Sitos between accounts without changing total supply,
 while learning balanced entries, atomic transactions, and concurrency safety.
@@ -149,8 +151,8 @@ Integer-shaped amounts outside the allowed range are invalid_amount.
 For valid input, resolve a committed same-key replay or payload conflict before
 checking mutable business state. Otherwise require initialization, require both
 accounts, reject origin participation or a reservoir destination, check source
-funds, then check resulting balances, in that order. A successful replay must not fail because funds have
-subsequently moved.
+funds, then check resulting balances, in that order. A successful replay must not
+fail because funds have subsequently moved.
 
 Precedence among multiple malformed-input errors is unspecified. Each isolated
 condition has the code above; clients must correct all invalid input.
@@ -191,6 +193,27 @@ preparation remains user-controlled.
 Balance overflow is unreachable in a healthy fixed-supply ledger because total
 supply is below int64 maximum. Test this defensive arithmetic rule at the
 calculation boundary rather than creating corrupt database balances.
+
+## Implementation and verification
+
+- Migration 4 adds transfer-scoped replay storage and rejects positive reservoir
+  entries outside the opening transaction. It does not initialize or move funds,
+  and its Down operation refuses to erase replay history.
+- Reuse existing account ID validation and Money arithmetic. Generate opaque
+  transfer IDs with crypto/rand.Text(); the transaction primary key rejects
+  collisions without overwriting history.
+- Use a READ COMMITTED database transaction. A conflicting key reservation waits
+  for its owner; a subsequent statement reads its committed response.
+- Acquire a ROW EXCLUSIVE accounts table lock before row locks to coordinate
+  with initialization. This mode permits other transfers and account creation;
+  it does not serialize ordinary transfers globally.
+- Lock both account rows in ascending byte-ordered ID order before calculating
+  balances. Opposite-direction transfers therefore use the same lock order.
+- Write the header, two entries, both balances, posted state, and successful
+  replay before commit. Failures roll everything back.
+- The opt-in integration,initializationcheck selector now also includes transfer
+  tests. These apply migrations and initialize only uniquely named test schemas,
+  then remove those schemas; ordinary integration tests still do no setup.
 
 ## Non-goals
 

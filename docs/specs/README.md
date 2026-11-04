@@ -40,4 +40,4 @@ smallest correct behavior, and refactor with passing tests.
   verified against PostgreSQL, including isolated initialization checks.
 - [Transfers](transfers.md): approved core movement, atomicity, concurrency,
   distribution-only reservoir, retry rules, HTTP contract, and acceptance
-  scenarios. Not implemented.
+  scenarios. Implemented and verified against PostgreSQL.

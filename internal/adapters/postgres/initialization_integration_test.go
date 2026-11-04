@@ -54,6 +54,7 @@ func initializationDB(t *testing.T, populated bool) (*pgx.Conn, context.Context)
 	})
 	for _, file := range []string{
 		"00001_create_accounts.sql", "00002_account_names_and_replays.sql", "00003_ledger_initialization.sql",
+		"00004_transfers.sql",
 	} {
 		if populated && file == "00003_ledger_initialization.sql" {
 			if _, err := scoped.Exec(ctx, "INSERT INTO accounts (id, name, balance) VALUES ('legacy', 'Preserved name', 42)"); err != nil {

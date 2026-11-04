@@ -24,7 +24,7 @@ real gold backing, or a blockchain.
 - The reservoir represents undistributed supply. The opening initialization
   credits it once; subsequent transfers may distribute funds to ordinary
   accounts but cannot return funds to the reservoir. This distribution-only
-  policy is defined in [Transfers](transfers.md), which is not yet implemented.
+  policy is defined in [Transfers](transfers.md).
 
 ## Initialization operation
 
