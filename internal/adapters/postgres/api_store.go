@@ -12,6 +12,7 @@ import (
 	"github.com/theepsi/Ledgersito/internal/adapters/postgres/dbsql"
 	"github.com/theepsi/Ledgersito/internal/application/accounts"
 	"github.com/theepsi/Ledgersito/internal/application/createaccount"
+	"github.com/theepsi/Ledgersito/internal/domain/account"
 )
 
 type APIStore struct {
@@ -40,13 +41,7 @@ func (s *APIStore) CreateOnce(ctx context.Context, key, name string, create func
 	if err != nil {
 		return reply, err
 	}
-	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if rollbackErr := tx.Rollback(cleanup); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			err = errors.Join(err, fmt.Errorf("rollback account creation: %w", rollbackErr))
-		}
-	}()
+	defer rollbackTransaction(tx, &err)
 	q := dbsql.New(tx)
 	// A conflicting insert waits for the owner transaction. At READ COMMITTED,
 	// the subsequent SELECT sees its committed result, or we acquire a rolled-back key.
@@ -99,9 +94,38 @@ func (s *APIStore) List(ctx context.Context) (result []accounts.Account, err err
 	result = make([]accounts.Account, 0, len(rows))
 	for _, row := range rows {
 		result = append(result, accounts.Account{
-			ID: row.ID, Name: row.Name,
+			ID: row.ID, Name: row.Name, Role: account.Role(row.Role),
 			Balance: accounts.Balance{Sititos: row.Balance, Currency: "SITO"},
 		})
 	}
 	return result, nil
+}
+
+func rollbackTransaction(tx pgx.Tx, result *error) {
+	cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := tx.Rollback(cleanup); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		*result = errors.Join(*result, fmt.Errorf("rollback ledger transaction: %w", err))
+	}
+}
+
+func (s *APIStore) Initialize(ctx context.Context) (created bool, err error) {
+	conn, err := pgx.ConnectConfig(ctx, s.config)
+	if err != nil {
+		return false, fmt.Errorf("connect for initialization: %w", err)
+	}
+	defer closeConnection(conn, &err)
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return false, err
+	}
+	defer rollbackTransaction(tx, &err)
+	created, err = dbsql.New(tx).InitializeLedger(ctx)
+	if err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return created, nil
 }

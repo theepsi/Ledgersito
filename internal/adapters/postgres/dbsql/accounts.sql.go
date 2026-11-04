@@ -59,13 +59,14 @@ func (q *Queries) GetCreation(ctx context.Context, key string) (GetCreationRow, 
 }
 
 const listAccounts = `-- name: ListAccounts :many
-SELECT id, name, balance FROM accounts ORDER BY name COLLATE "C", id COLLATE "C"
+SELECT id, name, balance, role FROM accounts ORDER BY name COLLATE "C", id COLLATE "C"
 `
 
 type ListAccountsRow struct {
 	ID      string
 	Name    string
 	Balance int64
+	Role    string
 }
 
 func (q *Queries) ListAccounts(ctx context.Context) ([]ListAccountsRow, error) {
@@ -77,7 +78,12 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]ListAccountsRow, error) {
 	var items []ListAccountsRow
 	for rows.Next() {
 		var i ListAccountsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.Balance); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Balance,
+			&i.Role,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

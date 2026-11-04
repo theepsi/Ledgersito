@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -62,6 +63,10 @@ func TestCreationNormalizesBeforeTransactionAndReplays(t *testing.T) {
 	if first.Status != 201 || string(first.Body) != string(second.Body) || g.calls != 1 ||
 		s.name != "Savings" || s.saved.Name() != "Savings" {
 		t.Fatalf("incorrect creation/replay: %+v %+v", first, second)
+	}
+	var response accounts.Account
+	if err := json.Unmarshal(first.Body, &response); err != nil || response.Role != account.Ordinary {
+		t.Fatalf("new responses must expose ordinary role: %+v %v", response, err)
 	}
 }
 

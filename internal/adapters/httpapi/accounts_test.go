@@ -55,6 +55,7 @@ func TestHTTPValidation(t *testing.T) {
 		{name: "media parameter", method: "POST", path: "/accounts", body: valid, media: "application/json; unknown=yes", key: "key", status: 415, code: "unsupported_media_type"},
 		{name: "duplicate", method: "POST", path: "/accounts", body: `{"name":"one","name":"two"}`, media: "application/json", key: "key", status: 400, code: "invalid_request"},
 		{name: "unknown field", method: "POST", path: "/accounts", body: `{"name":"one","extra":1}`, media: "application/json", key: "key", status: 400, code: "invalid_request"},
+		{name: "cannot select system role", method: "POST", path: "/accounts", body: `{"name":"one","role":"origin"}`, media: "application/json", key: "key", status: 400, code: "invalid_request"},
 		{name: "case sensitive field", method: "POST", path: "/accounts", body: `{"Name":"one"}`, media: "application/json", key: "key", status: 400, code: "invalid_request"},
 		{name: "null", method: "POST", path: "/accounts", body: `{"name":null}`, media: "application/json", key: "key", status: 400, code: "invalid_request"},
 		{name: "array", method: "POST", path: "/accounts", body: `[]`, media: "application/json", key: "key", status: 400, code: "invalid_request"},

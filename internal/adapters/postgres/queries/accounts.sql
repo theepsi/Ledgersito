@@ -2,7 +2,7 @@
 INSERT INTO accounts (id, balance, name) VALUES ($1, $2, $3);
 
 -- name: ListAccounts :many
-SELECT id, name, balance FROM accounts ORDER BY name COLLATE "C", id COLLATE "C";
+SELECT id, name, balance, role FROM accounts ORDER BY name COLLATE "C", id COLLATE "C";
 
 -- name: ReserveCreation :execrows
 INSERT INTO account_creation_replays (key, request_name) VALUES ($1, $2)

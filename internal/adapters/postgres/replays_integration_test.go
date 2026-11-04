@@ -258,7 +258,7 @@ func TestReplayStorageIntegration(t *testing.T) {
 
 		}
 		id := prefix + "-list-a"
-		if _, err := conn.Exec(ctx, "UPDATE accounts SET balance = -7 WHERE id = $1", id); err != nil {
+		if _, err := conn.Exec(ctx, "UPDATE accounts SET balance = 7 WHERE id = $1", id); err != nil {
 			t.Fatal(err)
 		}
 		items, err := store.List(ctx)
@@ -285,7 +285,7 @@ func TestReplayStorageIntegration(t *testing.T) {
 		found := false
 		for _, item := range items {
 			if item.ID == id {
-				found = item.Name == "Savings" && item.Balance.Sititos == -7 && item.Balance.Currency == "SITO"
+				found = item.Name == "Savings" && item.Balance.Sititos == 7 && item.Balance.Currency == "SITO" && item.Role == "ordinary"
 			}
 		}
 		if !found {

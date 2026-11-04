@@ -29,6 +29,9 @@ func TestNew(t *testing.T) {
 			if got.ID() != tt.id {
 				t.Errorf("got ID %q, want %q", got.ID(), tt.id)
 			}
+			if got.Role() != account.Ordinary {
+				t.Fatalf("normal creation must be ordinary, got %q", got.Role())
+			}
 			if got.Balance().Sititos() != 0 {
 				t.Errorf("got opening balance %d, want zero sititos", got.Balance().Sititos())
 			}

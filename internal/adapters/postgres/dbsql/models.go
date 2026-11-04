@@ -12,6 +12,7 @@ type Account struct {
 	ID      string
 	Balance int64
 	Name    string
+	Role    string
 }
 
 type AccountCreationReplay struct {
@@ -19,4 +20,23 @@ type AccountCreationReplay struct {
 	RequestName  string
 	StatusCode   pgtype.Int4
 	ResponseBody []byte
+}
+
+type Entry struct {
+	ID            int64
+	TransactionID string
+	AccountID     string
+	Amount        int64
+}
+
+type LedgerInitialization struct {
+	Singleton            bool
+	Supply               int64
+	OpeningTransactionID string
+}
+
+type LedgerTransaction struct {
+	ID        string
+	Reference string
+	Posted    bool
 }

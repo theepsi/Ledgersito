@@ -18,9 +18,10 @@ type Balance struct {
 }
 
 type Account struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	Balance Balance `json:"balance"`
+	ID      string       `json:"id"`
+	Name    string       `json:"name"`
+	Role    account.Role `json:"role"`
+	Balance Balance      `json:"balance"`
 }
 
 type Response struct {
@@ -55,7 +56,7 @@ func (s *Service) Create(ctx context.Context, key, name string) (Response, error
 			return Response{}, err
 		}
 		body, err := json.Marshal(Account{
-			ID: a.ID(), Name: a.Name(),
+			ID: a.ID(), Name: a.Name(), Role: a.Role(),
 			Balance: Balance{Sititos: a.Balance().Sititos(), Currency: "SITO"},
 		})
 		if err != nil {

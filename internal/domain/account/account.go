@@ -12,6 +12,14 @@ import (
 var ErrInvalidID = errors.New("account: ID must be non-empty and contain no whitespace")
 var ErrInvalidName = errors.New("account: name must contain 1-100 Unicode code points after trimming, without control characters")
 
+type Role string
+
+const (
+	Ordinary  Role = "ordinary"
+	Reservoir Role = "reservoir"
+	Origin    Role = "origin"
+)
+
 type Account struct {
 	id      string
 	name    string
@@ -51,4 +59,8 @@ func (a Account) ID() string {
 
 func (a Account) Balance() money.Money {
 	return a.balance
+}
+
+func (a Account) Role() Role {
+	return Ordinary
 }
