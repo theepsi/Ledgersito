@@ -3,7 +3,7 @@
 ## Status and purpose
 
 Agreed extension to the existing account domain and creation specs.
-Not implemented; migration of existing accounts still needs agreement.
+Not implemented.
 
 Accounts are ledger accounts, not users, registrations, or login identities.
 A name is a human-readable label for learning and recognizing accounts.
@@ -55,3 +55,19 @@ a substitute for an idempotency key.
 
 This extension supersedes the earlier account specs' exclusion of account
 names. It does not change ID validation, opening balances, or Money rules.
+
+## Migration of existing accounts
+
+- Add a new versioned migration; do not edit the already-applied accounts
+  migration.
+- Preserve existing account IDs and balances. Set the name of any existing
+  account to `Unnamed account` before enforcing the required name column.
+- This backfill is valid even when multiple accounts receive the same label:
+  names are not unique.
+- On an empty accounts table, there is nothing to backfill.
+- Do not retain a database default for new names. New account creation must
+  explicitly supply a validated name, rather than silently receive the legacy
+  label.
+- Test migration from the preceding schema with both empty and populated
+  accounts tables, verifying that existing IDs and balances remain unchanged.
+- Migration execution remains an explicit user-controlled setup step.

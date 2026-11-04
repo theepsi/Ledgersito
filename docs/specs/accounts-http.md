@@ -3,8 +3,9 @@
 ## Status and scope
 
 Agreed response and input-validation rules for the account API. Not implemented.
-Key validation, resource limits, timeouts, and migration of existing accounts
-still need agreement before implementation.
+Key validation, resource limits, and operation timeouts are agreed below.
+The name migration policy is defined in
+[Account Names](account-names.md).
 
 This contract extends [Account Creation Idempotency](account-idempotency.md)
 and [List Accounts](list-accounts.md).
@@ -43,6 +44,30 @@ Do not reconstruct the response from a later account balance.
 Return status 200 and the response defined in the listing spec. Items use the
 same account shape as the POST response. No idempotency key is required.
 
+## Keys, media types, and limits
+
+- POST requires exactly one `Idempotency-Key` header value containing 1-128
+  ASCII letters, digits, hyphens, or underscores. Keys are case-sensitive.
+  Do not trim or otherwise normalize the value received by the handler.
+- Missing, empty, invalid, or repeated keys are rejected before account
+  creation or key reservation. A comma-separated value is not a valid key.
+- Clients should generate random keys rather than predictable counters.
+- POST requires `Content-Type: application/json`, optionally with
+  `charset=utf-8` (case-insensitive). Reject missing or unsupported media types
+  and unsupported parameters.
+- Limit the POST body to 4096 bytes, including JSON whitespace. A body of
+  exactly 4096 bytes is allowed if otherwise valid.
+- Responses defined by this contract use `Content-Type: application/json`.
+- GET and POST application/database operations have a five-second timeout,
+  including waiting for an active same-key transaction. Propagate cancellation
+  to database work. This is an operation deadline, not a complete policy for
+  slow HTTP connections.
+- If that deadline expires before a response is committed and the client is
+  still connected, return status 503 with code `request_timeout`.
+- Timeout does not prove that the database rolled back. Retry POST with the
+  same key to recover its outcome; never suggest using a new key.
+- These limits are not authentication, authorization, or rate limiting.
+
 ## Errors
 
 Use an error envelope containing a stable machine-readable code and a
@@ -62,7 +87,11 @@ human-readable message:
 | Invalid JSON or request shape | 400 | `invalid_request` |
 | Invalid name | 400 | `invalid_name` |
 | Missing idempotency key on POST | 400 | `missing_idempotency_key` |
+| Empty, invalid, or repeated idempotency key | 400 | `invalid_idempotency_key` |
+| POST body exceeds 4096 bytes | 413 | `request_too_large` |
+| Missing or unsupported POST Content-Type | 415 | `unsupported_media_type` |
 | Committed key reused with a different normalized payload | 422 | `idempotency_key_reused` |
+| Application/database operation deadline exceeded | 503 | `request_timeout` |
 | Unexpected internal failure | 500 | `internal_error` |
 
 Messages explain the failure without exposing SQL, credentials, database
@@ -80,12 +109,15 @@ text. Names are not unique; sharing a name is not a conflict.
 - Duplicate JSON name fields are rejected, even if their values match.
 - GET uses the agreed accounts envelope; POST returns one account directly.
 - Unexpected failures return a generic 500 error, never a successful result.
+- Key lengths 1 and 128 are accepted; empty and 129-character keys, invalid
+  characters, and repeated header values are rejected.
+- Bodies above 4096 bytes return 413 without reserving a key.
+- JSON with an optional UTF-8 charset is accepted; unsupported media types or
+  parameters return 415.
+- Deadline expiration while waiting for a competing operation returns 503,
+  not a replay or a claim that the competing operation rolled back.
 
 ## Remaining decisions
 
-- Accepted media types and response Content-Type.
-- Key format, length, and repeated header handling.
-- Request body size and operation timeouts, including wait timeout responses.
 - Unsupported methods, paths, and query parameters.
 - Concrete ID generation and minimal server configuration.
-- Account-name migration and backfill policy for existing accounts.
