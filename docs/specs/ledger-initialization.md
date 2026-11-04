@@ -21,6 +21,10 @@ real gold backing, or a blockchain.
 - Ordinary accounts and the reservoir cannot have negative balances.
 - The origin is a non-spendable bookkeeping counterpart. It cannot participate
   in ordinary transfers; its negative balance is not an ordinary overdraft.
+- The reservoir represents undistributed supply. The opening initialization
+  credits it once; subsequent transfers may distribute funds to ordinary
+  accounts but cannot return funds to the reservoir. This distribution-only
+  policy is defined in [Transfers](transfers.md), which is not yet implemented.
 
 ## Initialization operation
 

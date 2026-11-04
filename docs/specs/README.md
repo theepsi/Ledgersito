@@ -39,5 +39,5 @@ smallest correct behavior, and refactor with passing tests.
   reservoir roles, and one-time balanced initialization. Implemented and
   verified against PostgreSQL, including isolated initialization checks.
 - [Transfers](transfers.md): approved core movement, atomicity, concurrency,
-  retry rules, and HTTP request/success shapes. Validation and error details
-  remain undecided; not implemented.
+  distribution-only reservoir, retry rules, HTTP contract, and acceptance
+  scenarios. Not implemented.
