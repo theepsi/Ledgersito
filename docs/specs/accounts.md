@@ -1,5 +1,8 @@
 # Accounts
 
+The original scope below is implemented. [Account Names](account-names.md)
+extends creation to require a name and supersedes its earlier exclusion here.
+
 ## Purpose and scope
 
 Define the domain rules for creating an account: a stable identity and an

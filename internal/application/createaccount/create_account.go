@@ -27,13 +27,17 @@ func New(generator IDGenerator, store Store) UseCase {
 	return UseCase{generator: generator, store: store}
 }
 
-func (u UseCase) Execute(ctx context.Context) (account.Account, error) {
+func (u UseCase) Execute(ctx context.Context, name string) (account.Account, error) {
+	name, err := account.NormalizeName(name)
+	if err != nil {
+		return account.Account{}, err
+	}
 	id, err := u.generator.Generate()
 	if err != nil {
 		return account.Account{}, fmt.Errorf("create account: generate ID: %w", err)
 	}
 
-	a, err := account.New(id)
+	a, err := account.New(id, name)
 	if err != nil {
 		return account.Account{}, fmt.Errorf("create account: %w", err)
 	}

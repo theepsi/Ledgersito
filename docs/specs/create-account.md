@@ -1,5 +1,10 @@
 # Create Account
 
+This original use case now accepts a name under [Account Names](account-names.md).
+The API invokes it inside the transaction specified by
+[Account Creation Idempotency](account-idempotency.md); it is not a second,
+non-idempotent HTTP endpoint.
+
 ## Purpose and scope
 
 Coordinate account creation at the application layer, using the existing

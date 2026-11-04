@@ -45,7 +45,7 @@ func TestExecuteCreatesAccounts(t *testing.T) {
 	useCase := createaccount.New(generator, store)
 
 	for _, id := range ids {
-		got, err := useCase.Execute(context.Background())
+		got, err := useCase.Execute(context.Background(), "Savings")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -95,7 +95,7 @@ func TestExecuteReportsFailuresWithoutRetry(t *testing.T) {
 				return tt.storageErr
 			})
 
-			_, err := createaccount.New(generator, store).Execute(context.Background())
+			_, err := createaccount.New(generator, store).Execute(context.Background(), "Savings")
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("got error %v, want identifiable error %v", err, tt.wantErr)
@@ -123,12 +123,12 @@ func TestExecuteReportsConflictWithoutReplacingAccount(t *testing.T) {
 		return nil
 	})
 	useCase := createaccount.New(generator, store)
-	first, err := useCase.Execute(context.Background())
+	first, err := useCase.Execute(context.Background(), "Savings")
 	if err != nil {
 		t.Fatalf("initial creation failed: %v", err)
 	}
 
-	_, err = useCase.Execute(context.Background())
+	_, err = useCase.Execute(context.Background(), "Savings")
 
 	if !errors.Is(err, createaccount.ErrAlreadyExists) {
 		t.Fatalf("got error %v, want identifiable conflict", err)

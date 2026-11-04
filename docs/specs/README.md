@@ -26,13 +26,12 @@ smallest correct behavior, and refactor with passing tests.
   persistence, conflict handling, and opt-in database tests. Implemented and
   verified against PostgreSQL, including concurrent duplicate creation.
 - [Account Creation Idempotency](account-idempotency.md): agreed replay,
-  normalized request identity, and atomicity rules. Not implemented; HTTP
-  details and the account-name migration remain to be specified.
+  normalized request identity, and atomicity rules. Implemented; database
+  verification of the extension is pending.
 - [Account Names](account-names.md): non-unique human-readable labels,
-  Unicode validation, and trimming. Not implemented; extends earlier specs.
+  Unicode validation, and trimming. Implemented; migration execution is pending.
 - [List Accounts](list-accounts.md): all accounts ordered by name then ID,
-  with explicit balance units. Not implemented; remaining HTTP details
-  and the account-name migration remain to be specified.
+  with explicit balance units. Implemented; database verification is pending.
 - [Accounts HTTP API](accounts-http.md): agreed GET/POST response shapes,
-  strict POST JSON validation, and core error statuses. Not implemented;
-  operational limits and remaining HTTP details are still open.
+  strict POST JSON validation, errors, limits, and server wiring. Implemented;
+  database verification is pending.

@@ -2,7 +2,8 @@
 
 ## Status and scope
 
-Agreed response and input-validation rules for the account API. Not implemented.
+Agreed response and input-validation rules for the account API. Implemented;
+real-database verification of this extension is pending.
 Key validation, resource limits, and operation timeouts are agreed below.
 The name migration policy is defined in
 [Account Names](account-names.md).
@@ -117,7 +118,19 @@ text. Names are not unique; sharing a name is not a conflict.
 - Deadline expiration while waiting for a competing operation returns 503,
   not a replay or a claim that the competing operation rolled back.
 
-## Remaining decisions
+## Routing and server
 
-- Unsupported methods, paths, and query parameters.
-- Concrete ID generation and minimal server configuration.
+- Match exactly `/accounts`, without trailing-slash or encoded-path aliases.
+- Unknown paths return JSON 404 `not_found`. Unsupported methods, including
+  HEAD, return 405 `method_not_allowed` with `Allow: GET, POST`.
+- Reject query parameters (including a bare `?`) with 400 `invalid_request`.
+- Generate opaque account IDs with standard-library `crypto/rand.Text()`.
+  The database primary key remains the final uniqueness safeguard.
+- `cmd/api` requires `DATABASE_URL`. Default `HTTP_ADDR` is `127.0.0.1:8080`;
+  callers can explicitly override it. No implicit `.env` loading.
+- Verify database connectivity at startup; report failures and exit nonzero.
+- Log structured JSON, shut down gracefully on SIGINT/SIGTERM, and never
+  apply migrations or start PostgreSQL automatically.
+- Bound HTTP header reading to five seconds, request reading to ten seconds,
+  response writing to fifteen seconds, and idle connections to sixty seconds.
+  Graceful shutdown allows ten seconds for active requests.

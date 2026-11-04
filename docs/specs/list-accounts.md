@@ -2,9 +2,9 @@
 
 ## Status and scope
 
-Agreed listing behavior for `GET /accounts`. Not implemented.
-The remaining HTTP details and account-name migration still need agreement
-before implementation.
+Agreed listing behavior for `GET /accounts`. Implemented; real-database
+verification is pending. See [HTTP rules](accounts-http.md) and
+[Account Names](account-names.md) for the agreed migration policy.
 
 Return all persisted accounts for this small educational ledger. Authentication,
 ownership filtering, pagination, and account mutation are outside this scope.
@@ -53,9 +53,3 @@ Ledger accounts are not user registrations.
 
 Use application tests for error propagation, PostgreSQL integration tests for
 retrieval and ordering, and HTTP tests for status and response shape.
-
-## Remaining HTTP decisions
-
-- Remaining error cases beyond the agreed [HTTP contract](accounts-http.md).
-- Handling unsupported query parameters.
-- Request timeout policy.

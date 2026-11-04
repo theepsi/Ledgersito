@@ -3,7 +3,7 @@
 ## Status and purpose
 
 Agreed extension to the existing account domain and creation specs.
-Not implemented.
+Implemented; migration and real-database verification are pending.
 
 Accounts are ledger accounts, not users, registrations, or login identities.
 A name is a human-readable label for learning and recognizing accounts.

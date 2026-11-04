@@ -4,10 +4,11 @@
 
 Agreed behavior for safe account-creation retries. This extends
 [Create Account](create-account.md), whose original implementation has no
-idempotency support. No implementation of this extension exists yet.
+idempotency support. This extension is implemented; real-database verification
+is pending.
 
-The HTTP contract, key validation, timeouts, and account-name schema migration
-still need separate agreement before end-to-end implementation.
+The [HTTP contract](accounts-http.md) defines key validation and timeouts;
+[Account Names](account-names.md) defines the schema migration policy.
 
 ## Request identity
 

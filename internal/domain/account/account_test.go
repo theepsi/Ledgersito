@@ -22,7 +22,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := account.New(tt.id)
+			got, err := account.New(tt.id, "Savings")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -56,7 +56,7 @@ func TestNewRejectsInvalidIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := account.New(tt.id); err == nil {
+			if _, err := account.New(tt.id, "Savings"); err == nil {
 				t.Fatalf("expected a validation error for ID %q", tt.id)
 			}
 		})
@@ -65,7 +65,7 @@ func TestNewRejectsInvalidIDs(t *testing.T) {
 
 func TestNewDoesNotReserveIDs(t *testing.T) {
 	for range 2 {
-		got, err := account.New("account-1")
+		got, err := account.New("account-1", "Savings")
 		if err != nil {
 			t.Fatalf("repeated construction failed: %v", err)
 		}

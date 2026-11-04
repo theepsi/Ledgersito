@@ -26,6 +26,7 @@ func (s *AccountStore) Create(ctx context.Context, a account.Account) error {
 	err := s.queries.CreateAccount(ctx, dbsql.CreateAccountParams{
 		ID:      a.ID(),
 		Balance: a.Balance().Sititos(),
+		Name:    a.Name(),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError

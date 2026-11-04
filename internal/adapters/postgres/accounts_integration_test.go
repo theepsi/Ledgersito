@@ -56,7 +56,7 @@ func testDB(t *testing.T) (*pgx.Conn, context.Context) {
 
 func fixture(t *testing.T, conn *pgx.Conn, id string) account.Account {
 	t.Helper()
-	a, err := account.New(id)
+	a, err := account.New(id, "Savings")
 	if err != nil {
 		t.Fatal(err)
 	}

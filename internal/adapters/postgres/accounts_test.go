@@ -35,7 +35,7 @@ func TestCreateClassifiesDatabaseErrors(t *testing.T) {
 		{name: "other database error", err: &pgconn.PgError{Code: "42501"}},
 		{name: "connection failure", err: unavailable},
 	}
-	a, err := account.New("account-1")
+	a, err := account.New("account-1", "Savings")
 	if err != nil {
 		t.Fatal(err)
 	}

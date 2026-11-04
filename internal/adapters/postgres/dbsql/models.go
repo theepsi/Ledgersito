@@ -4,7 +4,19 @@
 
 package dbsql
 
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
 type Account struct {
 	ID      string
 	Balance int64
+	Name    string
+}
+
+type AccountCreationReplay struct {
+	Key          string
+	RequestName  string
+	StatusCode   pgtype.Int4
+	ResponseBody []byte
 }

@@ -1,0 +1,251 @@
+package httpapi
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
+	"mime"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/theepsi/Ledgersito/internal/application/accounts"
+	"github.com/theepsi/Ledgersito/internal/domain/account"
+)
+
+type Service interface {
+	Create(context.Context, string, string) (accounts.Response, error)
+	List(context.Context) ([]accounts.Account, error)
+}
+
+type Handler struct {
+	service Service
+	logger  *slog.Logger
+}
+
+func New(service Service, logger *slog.Logger) *Handler {
+	return &Handler{service: service, logger: logger}
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/accounts" || r.URL.RawPath != "" {
+		h.failure(w, 404, "not_found", "Route not found.")
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		h.failure(w, 405, "method_not_allowed", "Method not allowed.")
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		h.failure(w, 400, "invalid_request", "Query parameters are not supported.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	if r.Method == http.MethodGet {
+		items, err := h.service.List(ctx)
+		if err != nil {
+			h.applicationError(w, ctx, err)
+			return
+		}
+		if items == nil {
+			items = []accounts.Account{}
+		}
+		body, err := json.Marshal(struct {
+			Accounts []accounts.Account `json:"accounts"`
+		}{items})
+		if err != nil {
+			h.applicationError(w, ctx, err)
+			return
+		}
+		if ctx.Err() != nil {
+			h.applicationError(w, ctx, ctx.Err())
+			return
+		}
+		h.write(w, 200, body)
+		return
+	}
+	keys := r.Header.Values("Idempotency-Key")
+	if len(keys) == 0 {
+		h.failure(w, 400, "missing_idempotency_key", "An Idempotency-Key is required.")
+		return
+	}
+	if len(keys) != 1 || !validKey(keys[0]) {
+		h.failure(w, 400, "invalid_idempotency_key", "Provide one key of 1-128 ASCII letters, digits, hyphens, or underscores.")
+		return
+	}
+	mediaValues := r.Header.Values("Content-Type")
+	if len(mediaValues) != 1 || !validMedia(mediaValues[0]) {
+		h.failure(w, 415, "unsupported_media_type", "Content-Type must be application/json with optional UTF-8 charset.")
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			h.failure(w, 413, "request_too_large", "Request body exceeds 4096 bytes.")
+		} else {
+			h.logger.Warn("read request body failed", "error", err)
+			h.failure(w, 400, "invalid_request", "Unable to read request body.")
+		}
+		return
+	}
+	name, err := decodeName(body)
+	if err != nil {
+		h.failure(w, 400, "invalid_request", "Provide exactly one JSON name string.")
+		return
+	}
+	name, err = account.NormalizeName(name)
+	if err != nil {
+		h.failure(w, 400, "invalid_name", "Name must contain 1-100 Unicode code points after trimming, without control characters.")
+		return
+	}
+	reply, err := h.service.Create(ctx, keys[0], name)
+	if err != nil {
+		h.applicationError(w, ctx, err)
+		return
+	}
+	if ctx.Err() != nil {
+		h.applicationError(w, ctx, ctx.Err())
+		return
+	}
+	h.write(w, reply.Status, reply.Body)
+}
+
+func validKey(key string) bool {
+	if len(key) < 1 || len(key) > 128 {
+		return false
+	}
+	for _, c := range key {
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validMedia(value string) bool {
+	media, params, err := mime.ParseMediaType(value)
+	if err != nil || media != "application/json" {
+		return false
+	}
+	for key, value := range params {
+		if key != "charset" || !strings.EqualFold(value, "utf-8") {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeName(body []byte) (string, error) {
+	invalid := errors.New("invalid account JSON")
+	if !utf8.Valid(body) {
+		return "", invalid
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') || !decoder.More() {
+		return "", invalid
+	}
+	token, err = decoder.Token()
+	if err != nil || token != "name" {
+		return "", invalid
+	}
+	var raw json.RawMessage
+	if err := decoder.Decode(&raw); err != nil || len(raw) == 0 || raw[0] != '"' || !validSurrogates(raw) {
+		return "", invalid
+	}
+	var name string
+	if err := json.Unmarshal(raw, &name); err != nil || decoder.More() {
+		return "", invalid
+	}
+	token, err = decoder.Token()
+	if err != nil || token != json.Delim('}') {
+		return "", invalid
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return "", invalid
+	}
+	return name, nil
+}
+
+// encoding/json replaces unpaired UTF-16 surrogates; reject them instead of
+// silently changing the name used for idempotency.
+func validSurrogates(raw []byte) bool {
+	for i := 1; i < len(raw)-1; i++ {
+		if raw[i] != '\\' {
+			continue
+		}
+		i++
+		if raw[i] != 'u' {
+			continue
+		}
+		n, err := strconv.ParseUint(string(raw[i+1:i+5]), 16, 16)
+		if err != nil {
+			return false
+		}
+		i += 4
+		if n >= 0xDC00 && n <= 0xDFFF {
+			return false
+		}
+		if n >= 0xD800 && n <= 0xDBFF {
+			if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+				return false
+			}
+			low, err := strconv.ParseUint(string(raw[i+3:i+7]), 16, 16)
+			if err != nil || low < 0xDC00 || low > 0xDFFF {
+				return false
+			}
+			i += 6
+		}
+	}
+	return true
+}
+
+func (h *Handler) applicationError(w http.ResponseWriter, ctx context.Context, err error) {
+	h.logger.Error("account operation failed", "error", err)
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(ctx.Err(), context.DeadlineExceeded):
+		h.failure(w, 503, "request_timeout", "Operation timed out. Retry creation with the same idempotency key.")
+	case errors.Is(err, accounts.ErrKeyReused):
+		h.failure(w, 422, "idempotency_key_reused", "Key was already used with a different name.")
+	case errors.Is(err, account.ErrInvalidName):
+		h.failure(w, 400, "invalid_name", "Invalid account name.")
+	default:
+		h.failure(w, 500, "internal_error", "An internal error occurred.")
+	}
+}
+
+func (h *Handler) failure(w http.ResponseWriter, status int, code, message string) {
+	body, err := json.Marshal(struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}{Error: struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}{code, message}})
+	if err != nil {
+		h.logger.Error("encode error response failed", "error", err)
+		http.Error(w, "Internal error", 500)
+		return
+	}
+	h.write(w, status, body)
+}
+
+func (h *Handler) write(w http.ResponseWriter, status int, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if _, err := w.Write(body); err != nil {
+		h.logger.Warn("write HTTP response failed", "error", err)
+	}
+}

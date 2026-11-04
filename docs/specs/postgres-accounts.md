@@ -1,5 +1,9 @@
 # PostgreSQL Account Storage
 
+The original create-only adapter below is implemented and verified.
+[Account Names](account-names.md) extends its schema and insert query; the
+API additionally uses transactional [idempotency](account-idempotency.md).
+
 ## Purpose and scope
 
 Implement the storage boundary of [Create Account](create-account.md) using

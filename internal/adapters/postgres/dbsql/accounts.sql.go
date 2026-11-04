@@ -7,18 +7,101 @@ package dbsql
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAccount = `-- name: CreateAccount :exec
-INSERT INTO accounts (id, balance) VALUES ($1, $2)
+INSERT INTO accounts (id, balance, name) VALUES ($1, $2, $3)
 `
 
 type CreateAccountParams struct {
 	ID      string
 	Balance int64
+	Name    string
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) error {
-	_, err := q.db.Exec(ctx, createAccount, arg.ID, arg.Balance)
+	_, err := q.db.Exec(ctx, createAccount, arg.ID, arg.Balance, arg.Name)
 	return err
+}
+
+const finishCreation = `-- name: FinishCreation :exec
+UPDATE account_creation_replays SET status_code = $2, response_body = $3 WHERE key = $1
+`
+
+type FinishCreationParams struct {
+	Key          string
+	StatusCode   pgtype.Int4
+	ResponseBody []byte
+}
+
+func (q *Queries) FinishCreation(ctx context.Context, arg FinishCreationParams) error {
+	_, err := q.db.Exec(ctx, finishCreation, arg.Key, arg.StatusCode, arg.ResponseBody)
+	return err
+}
+
+const getCreation = `-- name: GetCreation :one
+SELECT request_name, status_code, response_body FROM account_creation_replays WHERE key = $1
+`
+
+type GetCreationRow struct {
+	RequestName  string
+	StatusCode   pgtype.Int4
+	ResponseBody []byte
+}
+
+func (q *Queries) GetCreation(ctx context.Context, key string) (GetCreationRow, error) {
+	row := q.db.QueryRow(ctx, getCreation, key)
+	var i GetCreationRow
+	err := row.Scan(&i.RequestName, &i.StatusCode, &i.ResponseBody)
+	return i, err
+}
+
+const listAccounts = `-- name: ListAccounts :many
+SELECT id, name, balance FROM accounts ORDER BY name COLLATE "C", id COLLATE "C"
+`
+
+type ListAccountsRow struct {
+	ID      string
+	Name    string
+	Balance int64
+}
+
+func (q *Queries) ListAccounts(ctx context.Context) ([]ListAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listAccounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAccountsRow
+	for rows.Next() {
+		var i ListAccountsRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reserveCreation = `-- name: ReserveCreation :execrows
+INSERT INTO account_creation_replays (key, request_name) VALUES ($1, $2)
+ON CONFLICT (key) DO NOTHING
+`
+
+type ReserveCreationParams struct {
+	Key         string
+	RequestName string
+}
+
+func (q *Queries) ReserveCreation(ctx context.Context, arg ReserveCreationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reserveCreation, arg.Key, arg.RequestName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
