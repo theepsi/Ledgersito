@@ -38,3 +38,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Ledger Initialization](ledger-initialization.md): fixed supply, origin and
   reservoir roles, and one-time balanced initialization. Implemented and
   verified against PostgreSQL, including isolated initialization checks.
+- [Transfers](transfers.md): approved core movement, atomicity, concurrency,
+  retry rules, and HTTP request/success shapes. Validation and error details
+  remain undecided; not implemented.
