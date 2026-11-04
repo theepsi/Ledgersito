@@ -35,3 +35,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Accounts HTTP API](accounts-http.md): agreed GET/POST response shapes,
   strict POST JSON validation, errors, limits, and server wiring. Implemented;
   database verification is pending.
+- [Ledger Initialization](ledger-initialization.md): fixed supply, origin and
+  reservoir roles, and one-time balanced initialization. Draft for review;
+  not implemented.
