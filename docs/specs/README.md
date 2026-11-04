@@ -25,3 +25,6 @@ smallest correct behavior, and refactor with passing tests.
 - [PostgreSQL Account Storage](postgres-accounts.md): migrations, create-only
   persistence, conflict handling, and opt-in database tests. Implemented and
   verified against PostgreSQL, including concurrent duplicate creation.
+- [Account Creation Idempotency](account-idempotency.md): agreed replay,
+  normalized request identity, and atomicity rules. Not implemented; HTTP
+  details and the nickname migration remain to be specified.
