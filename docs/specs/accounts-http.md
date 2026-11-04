@@ -30,6 +30,7 @@ Requires an `Idempotency-Key` and a JSON object containing only `name`:
 {
   "id": "generated-id",
   "name": "Dragon's savings",
+  "role": "ordinary",
   "balance": {
     "sititos": 0,
     "currency": "SITO"
@@ -39,11 +40,16 @@ Requires an `Idempotency-Key` and a JSON object containing only `name`:
 
 A successful same-key replay returns the original status 201 and body.
 Do not reconstruct the response from a later account balance.
+Successful responses stored before roles were introduced replay unchanged and
+may lack `role`. Newly recorded creations include `ordinary`; callers cannot
+choose a role.
 
 ## GET /accounts
 
 Return status 200 and the response defined in the listing spec. Items use the
 same account shape as the POST response. No idempotency key is required.
+Listings always include `role` and include the origin and reservoir after
+explicit [initialization](ledger-initialization.md).
 
 ## Keys, media types, and limits
 

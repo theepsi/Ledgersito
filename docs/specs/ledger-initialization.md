@@ -2,7 +2,8 @@
 
 ## Status and purpose
 
-Draft for review. No implementation yet.
+Approved, implemented, and verified against PostgreSQL. The user confirmed
+migration 3 and the integration/initialization checks pass.
 
 Establish a fixed fictional supply once, with balanced opening history.
 The reservoir is a learning scenario, not a requirement of all ledgers,
@@ -36,6 +37,11 @@ real gold backing, or a blockchain.
 | reservoir | 100000000 |
 
 - Each system account has a stable ID and a human-readable name.
+- The origin is `system-origin`, named `Supply origin`; the reservoir is
+  `system-reservoir`, named `Reservoir`. The opening transaction is
+  `system-opening`, with reference `initial supply`.
+- Invoke with `go run ./cmd/initledger` and an explicit `DATABASE_URL`.
+  The command has a 30-second operation deadline and exits nonzero on errors.
 - Keep pre-existing ordinary accounts unchanged. A zero-balance account needs
   no opening entry.
 - Initialization must not silently absorb unexplained nonzero balances or
@@ -103,11 +109,27 @@ real gold backing, or a blockchain.
 Use focused domain/application tests and opt-in real-PostgreSQL integration
 tests. Schema migrations and initialization remain user-run operations.
 
-## Remaining implementation details to settle
+## Database enforcement
 
-- CLI command name and system account IDs/names.
-- Ledger transaction/entry schema, append-only enforcement, and initialization
-  state validation strategy.
+- Migration 3 adds roles, transaction headers, signed entries, and a singleton
+  initialization record. It creates schema only; it does not issue funds.
+- Account IDs and roles cannot change. Non-origin balances cannot be negative;
+  the origin balance is fixed after creation.
+- Entry updates, deletes, and truncation are rejected by triggers.
+- A transaction is assembled as unposted, then marked posted in the same
+  database transaction. A deferred constraint trigger checks at commit that
+  it is posted with at least two entries summing to zero.
+- Posted transactions cannot be changed or deleted and cannot receive more
+  entries. Entry insertion locks its transaction header to serialize against
+  posting; origin entries are allowed only in the opening transaction.
+- Initialization uses a PostgreSQL function within the adapter's transaction.
+  A table lock serializes initializers and excludes account writes while
+  validating state. Listings remain possible. Repeats check the opening
+  records, every account's entry sum, transaction balance, and conserved supply.
+- Migration 3 is forward-only: its Down operation fails instead of deleting
+  ledger history. A future corrective schema change requires a new migration.
+- These protections assume ordinary SQL operation, not a privileged operator
+  disabling triggers or dropping tables.
 
 ## Non-goals
 

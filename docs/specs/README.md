@@ -26,15 +26,15 @@ smallest correct behavior, and refactor with passing tests.
   persistence, conflict handling, and opt-in database tests. Implemented and
   verified against PostgreSQL, including concurrent duplicate creation.
 - [Account Creation Idempotency](account-idempotency.md): agreed replay,
-  normalized request identity, and atomicity rules. Implemented; database
-  verification of the extension is pending.
+  normalized request identity, and atomicity rules. Implemented and verified
+  against PostgreSQL; old response bodies remain unchanged when roles are added.
 - [Account Names](account-names.md): non-unique human-readable labels,
-  Unicode validation, and trimming. Implemented; migration execution is pending.
+  Unicode validation, and trimming. Implemented and verified.
 - [List Accounts](list-accounts.md): all accounts ordered by name then ID,
-  with explicit balance units. Implemented; database verification is pending.
+  with explicit balance units and roles. Implemented and verified.
 - [Accounts HTTP API](accounts-http.md): agreed GET/POST response shapes,
-  strict POST JSON validation, errors, limits, and server wiring. Implemented;
-  database verification is pending.
+  strict POST JSON validation, errors, limits, and server wiring. Implemented
+  and verified; new creation responses expose the ordinary role.
 - [Ledger Initialization](ledger-initialization.md): fixed supply, origin and
-  reservoir roles, and one-time balanced initialization. Draft for review;
-  not implemented.
+  reservoir roles, and one-time balanced initialization. Implemented and
+  verified against PostgreSQL, including isolated initialization checks.

@@ -21,8 +21,26 @@ then ID. Names are non-unique labels; balances use integer sititos.
 There is no transfer ledger yet. Features are specified and developed one at
 a time using spec-first TDD.
 
-The name/idempotency extension is awaiting real-database verification after
-applying migration 2; see the setup instructions.
+Names and account-creation idempotency have passed database and manual API
+checks. One-time fixed-supply initialization has also passed its PostgreSQL
+integration checks.
+
+## Fixed-supply learning scenario
+
+The explicit `go run ./cmd/initledger` command establishes 1,000,000 fictional
+Sitos (100,000,000 sititos) once. A reservoir receives the positive opening
+entry and an origin bookkeeping account receives the equal negative entry.
+Repeated initialization validates the ledger and never adds funds.
+
+Migration 3 creates the schema but does not initialize it. The origin is not
+spendable; ordinary accounts and the reservoir cannot overdraw. GET lists all
+account roles; new POST results include `"role":"ordinary"`. Old successful
+responses replay exactly as stored and may not include a role.
+
+The reservoir is a simulation policy, not gold backing, a blockchain, or a
+requirement of double-entry ledgers. Transfer behavior remains to be specified.
+Apply migrations explicitly before running the command; migration 3 refuses
+rollback rather than destroy ledger history.
 
 Run the domain and application tests without Docker:
 

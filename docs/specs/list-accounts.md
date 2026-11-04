@@ -17,7 +17,7 @@ Ledger accounts are not user registrations.
 - Include every persisted account exactly once, sorted by name ascending and
   then ID ascending to break ties. Use byte-based ordering for both fields
   rather than locale-dependent ordering. Names are case-preserved and non-unique.
-- Each item contains `id`, `name`, and a `balance` object with
+- Each item contains `id`, `name`, `role`, and a `balance` object with
   integer `sititos` and currency `SITO`.
 - Return stored balances, not an assumed zero opening balance.
 - With no accounts, return `{"accounts":[]}`, never null or a not-found error.
@@ -32,6 +32,7 @@ Ledger accounts are not user registrations.
     {
       "id": "generated-id",
       "name": "Dragon's savings",
+      "role": "ordinary",
       "balance": {
         "sititos": 0,
         "currency": "SITO"
@@ -49,6 +50,8 @@ Ledger accounts are not user registrations.
 - Returned IDs, names, and balances match persisted values.
 - A populated listing contains all accounts without duplicates.
 - Listing succeeds without an idempotency key and does not modify stored data.
+- After initialization, listing includes origin and reservoir alongside
+  ordinary accounts, each with the corresponding role.
 - Storage failure produces an explicit error, not status 200 with an empty array.
 
 Use application tests for error propagation, PostgreSQL integration tests for
