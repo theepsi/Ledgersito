@@ -81,3 +81,4 @@ go test -v ./internal/domain/... ./internal/application/...
 - [Local setup](docs/SETUP.md)
 - [Architecture](docs/DESIGN.md)
 - [Feature specifications](docs/specs/README.md)
+- [Learning roadmap and session handoff](docs/ROADMAP.md)
