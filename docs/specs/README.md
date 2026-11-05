@@ -41,5 +41,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Transfers](transfers.md): approved core movement, atomicity, concurrency,
   distribution-only reservoir, retry rules, HTTP contract, and acceptance
   scenarios. Implemented and verified against PostgreSQL.
-- [Ledger Reconciliation](reconciliation.md): proposed read-only verification
+- [Ledger Reconciliation](reconciliation.md): approved read-only verification
   of ledger balances, history, fixed supply, and system-account invariants.
+  Implemented; PostgreSQL execution checks are pending.

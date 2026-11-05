@@ -21,37 +21,20 @@ implement every candidate below.
   rollback, replay, and timeouts. Migration 4 and transfer checks passed.
 - The user has also tried the account/transfer API manually.
 
-## Next: define reconciliation
+## Next: verify reconciliation against PostgreSQL
 
-Agree on a reconciliation spec before writing tests or implementation.
-The goal is to independently verify persisted ledger correctness without
-changing history or repairing balances.
+The [reconciliation spec](specs/reconciliation.md) is approved and implemented:
+an explicit read-only CLI with text reports, distinct exit codes, and one
+REPEATABLE READ snapshot. It checks cached balances, posted/balanced history,
+fixed supply, system identities/metadata, opening history, and reservoir policy.
+It does not call initialization or change its behavior.
 
-Proposed checks to discuss:
-
-- Each cached account balance equals the sum of its entries, including zero
-  for accounts without entries.
-- Every committed ledger transaction is posted and has balanced entries.
-- Origin remains at -100,000,000 sititos; reservoir plus ordinary balances
-  total 100,000,000; all balances together sum to zero.
-- System identities, roles, initialization metadata, and opening history
-  remain consistent. Non-origin accounts never have negative balances.
-- Reservoir entries follow the distribution-only rule after initialization.
-
-Decisions still needed:
-
-- An explicit read-only CLI versus another interface.
-- Reporting format, exit codes, and behavior before initialization.
-- Consistent snapshot semantics while transfers are running, to avoid false
-  mismatches from reading different committed states.
-- Which findings to report together and how to distinguish inconsistency from
-  a database/operational failure.
-- Focused valid/corrupt-state and concurrency acceptance scenarios, with any
-  deliberately inconsistent fixtures confined to isolated test schemas.
-
-Initialization already validates several invariants on repeat invocation.
-Inspect that prior art before designing reconciliation; avoid unnecessary
-duplication or silently changing initialization behavior.
+Real-PostgreSQL execution remains pending at the user's request; no test
+database connection is configured in the session. Once the user provides
+`TEST_DATABASE_URL` for prepared `ledger_test` and approves schema setup, run
+the focused reconciliation checks documented in the spec. Valid/corrupt-state,
+read-only, and controlled concurrent-write scenarios use isolated test schemas
+only. Do not mark the feature database-verified until those checks pass.
 
 ## Later candidates, not yet approved
 

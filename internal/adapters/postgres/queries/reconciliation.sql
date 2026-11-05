@@ -1,0 +1,100 @@
+-- name: ReconciliationState :one
+SELECT
+    EXISTS (SELECT 1 FROM ledger_initialization) AS initialized,
+    coalesce(NOT EXISTS (SELECT 1 FROM ledger_initialization)
+    AND NOT EXISTS (SELECT 1 FROM ledger_transactions)
+    AND NOT EXISTS (SELECT 1 FROM entries)
+    AND NOT EXISTS (
+        SELECT 1 FROM accounts WHERE balance <> 0 OR role <> 'ordinary'
+        OR id IN ('system-origin', 'system-reservoir')
+    ), false)::boolean AS clean_uninitialized;
+
+-- name: ReconciliationFindings :many
+WITH account_totals AS (
+    SELECT account_id, sum(amount) AS total FROM entries GROUP BY account_id
+), transaction_totals AS (
+    SELECT transaction_id, count(*) AS entry_count, sum(amount) AS total
+    FROM entries GROUP BY transaction_id
+), findings AS (
+    SELECT 'initialization_record'::text AS code, ''::text AS subject_id,
+        'Initialization metadata is missing or invalid.'::text AS message
+    WHERE (SELECT count(*) FROM ledger_initialization) <> 1
+        OR EXISTS (
+            SELECT 1 FROM ledger_initialization
+            WHERE NOT singleton OR supply <> 100000000 OR opening_transaction_id <> 'system-opening'
+        )
+    UNION ALL
+    SELECT 'system_origin', 'system-origin', 'Origin identity, name, or role is invalid.'
+    WHERE (SELECT count(*) FROM accounts WHERE role = 'origin') <> 1
+        OR NOT EXISTS (
+            SELECT 1 FROM accounts WHERE id = 'system-origin' AND role = 'origin' AND name = 'Supply origin'
+        )
+    UNION ALL
+    SELECT 'system_reservoir', 'system-reservoir', 'Reservoir identity, name, or role is invalid.'
+    WHERE (SELECT count(*) FROM accounts WHERE role = 'reservoir') <> 1
+        OR NOT EXISTS (
+            SELECT 1 FROM accounts WHERE id = 'system-reservoir' AND role = 'reservoir' AND name = 'Reservoir'
+        )
+    UNION ALL
+    SELECT 'account_role', id, 'Account role is not recognized.'
+    FROM accounts WHERE role NOT IN ('ordinary', 'origin', 'reservoir')
+    UNION ALL
+    SELECT 'opening_history', 'system-opening', 'Opening transaction or its two fixed-supply entries are invalid.'
+    WHERE NOT EXISTS (
+        SELECT 1 FROM ledger_transactions
+        WHERE id = 'system-opening' AND posted AND reference = 'initial supply'
+    )
+        OR (SELECT count(*) FROM entries WHERE transaction_id = 'system-opening') <> 2
+        OR (SELECT count(*) FROM entries WHERE transaction_id = 'system-opening'
+            AND account_id = 'system-origin' AND amount = -100000000) <> 1
+        OR (SELECT count(*) FROM entries WHERE transaction_id = 'system-opening'
+            AND account_id = 'system-reservoir' AND amount = 100000000) <> 1
+    UNION ALL
+    SELECT 'transaction_unposted', id, 'Committed ledger transaction is not posted.'
+    FROM ledger_transactions WHERE NOT posted
+    UNION ALL
+    SELECT 'transaction_entry_count', t.id, 'Ledger transaction has fewer than two entries.'
+    FROM ledger_transactions t LEFT JOIN transaction_totals e ON e.transaction_id = t.id
+    WHERE coalesce(e.entry_count, 0) < 2
+    UNION ALL
+    SELECT 'transaction_unbalanced', t.id, 'Signed transaction entries do not total zero.'
+    FROM ledger_transactions t LEFT JOIN transaction_totals e ON e.transaction_id = t.id
+    WHERE coalesce(e.total, 0) <> 0
+    UNION ALL
+    SELECT 'account_balance_mismatch', a.id, 'Cached balance differs from entries.'
+    FROM accounts a LEFT JOIN account_totals e ON e.account_id = a.id
+    WHERE a.balance <> coalesce(e.total, 0)
+    UNION ALL
+    SELECT 'origin_balance', id, 'Origin balance is not -100000000 sititos.'
+    FROM accounts WHERE (role = 'origin' OR id = 'system-origin') AND balance <> -100000000
+    UNION ALL
+    SELECT 'non_origin_negative', id, 'Non-origin balance is negative.'
+    FROM accounts WHERE role <> 'origin' AND balance < 0
+    UNION ALL
+    SELECT 'circulating_supply_mismatch', '', 'Reservoir and ordinary balances do not total 100000000 sititos.'
+    WHERE (SELECT coalesce(sum(balance), 0) FROM accounts WHERE role IN ('ordinary', 'reservoir')) <> 100000000
+    UNION ALL
+    SELECT 'total_balance_mismatch', '', 'Account balances do not total zero.'
+    WHERE (SELECT coalesce(sum(balance), 0) FROM accounts) <> 0
+    UNION ALL
+    SELECT DISTINCT 'origin_entry_outside_opening', e.transaction_id, 'Origin entry exists outside the opening transaction.'
+    FROM entries e LEFT JOIN accounts a ON a.id = e.account_id
+    WHERE (a.role = 'origin' OR e.account_id = 'system-origin') AND e.transaction_id <> 'system-opening'
+    UNION ALL
+    SELECT DISTINCT 'reservoir_credit', e.transaction_id, 'Reservoir received a positive entry outside initialization.'
+    FROM entries e LEFT JOIN accounts a ON a.id = e.account_id
+    WHERE (a.role = 'reservoir' OR e.account_id = 'system-reservoir')
+        AND e.amount > 0 AND e.transaction_id <> 'system-opening'
+    UNION ALL
+    SELECT 'entry_account_missing', e.id::text, 'Entry refers to a missing account.'
+    FROM entries e LEFT JOIN accounts a ON a.id = e.account_id WHERE a.id IS NULL
+    UNION ALL
+    SELECT 'entry_transaction_missing', e.id::text, 'Entry refers to a missing transaction.'
+    FROM entries e LEFT JOIN ledger_transactions t ON t.id = e.transaction_id WHERE t.id IS NULL
+    UNION ALL
+    SELECT 'initialization_opening_missing', i.opening_transaction_id, 'Initialization refers to a missing transaction.'
+    FROM ledger_initialization i LEFT JOIN ledger_transactions t ON t.id = i.opening_transaction_id
+    WHERE t.id IS NULL
+)
+SELECT code, subject_id, message FROM findings
+ORDER BY code COLLATE "C", subject_id COLLATE "C";

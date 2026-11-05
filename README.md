@@ -72,6 +72,21 @@ See the [transfer spec](docs/specs/transfers.md) for validation, errors, and
 concurrency guarantees. Migration 4 also refuses rollback to preserve replay
 history.
 
+## Reconciliation
+
+With the existing migrations applied and `DATABASE_URL` configured,
+`go run ./cmd/reconcile` independently checks balances, balanced posted history,
+fixed supply, and system-account rules in one read-only consistent snapshot.
+It does not initialize, migrate, or repair the ledger, and concurrent transfers
+can continue.
+
+The text report lists every detected invariant finding. Process exit codes are
+`0` consistent, `1` findings, `2` operational failure, and `3` cleanly
+uninitialized. Build and run the executable when exact codes are needed:
+`go run` may itself exit `1` for any nonzero program exit.
+See the [reconciliation spec](docs/specs/reconciliation.md). Implementation is
+in place; real-PostgreSQL reconciliation checks are still pending.
+
 Run the domain and application tests without Docker:
 
 ```sh
