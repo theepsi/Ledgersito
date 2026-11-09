@@ -19,22 +19,11 @@ implement every candidate below.
   receive transfers. Ordinary accounts circulate funds; origin never transfers.
 - Unit/HTTP tests and real-PostgreSQL integration checks, including concurrency,
   rollback, replay, and timeouts. Migration 4 and transfer checks passed.
+- Read-only ledger reconciliation CLI checks balances, transaction history,
+  fixed supply, and system invariants in one consistent snapshot; focused
+  PostgreSQL acceptance tests pass, and the existing local ledger reconciled
+  successfully.
 - The user has also tried the account/transfer API manually.
-
-## Next: verify reconciliation against PostgreSQL
-
-The [reconciliation spec](specs/reconciliation.md) is approved and implemented:
-an explicit read-only CLI with text reports, distinct exit codes, and one
-REPEATABLE READ snapshot. It checks cached balances, posted/balanced history,
-fixed supply, system identities/metadata, opening history, and reservoir policy.
-It does not call initialization or change its behavior.
-
-Real-PostgreSQL execution remains pending at the user's request; no test
-database connection is configured in the session. Once the user provides
-`TEST_DATABASE_URL` for prepared `ledger_test` and approves schema setup, run
-the focused reconciliation checks documented in the spec. Valid/corrupt-state,
-read-only, and controlled concurrent-write scenarios use isolated test schemas
-only. Do not mark the feature database-verified until those checks pass.
 
 ## Later candidates, not yet approved
 

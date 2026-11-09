@@ -89,7 +89,7 @@ func TestReconciliationCorruptionIntegration(t *testing.T) {
 			[]string{"system_reservoir"}},
 		{"system role", "ALTER TABLE accounts DISABLE TRIGGER USER; UPDATE accounts SET role = 'ordinary' WHERE id = 'system-reservoir'",
 			[]string{"system_reservoir"}},
-		{"unknown role", "ALTER TABLE accounts DROP CONSTRAINT accounts_role; UPDATE accounts SET role = 'unknown' WHERE id = 'alice'",
+		{"unknown role", "ALTER TABLE accounts DROP CONSTRAINT accounts_role; ALTER TABLE accounts DISABLE TRIGGER USER; UPDATE accounts SET role = 'unknown' WHERE id = 'alice'",
 			[]string{"account_role"}},
 		{"unposted empty transaction", "ALTER TABLE ledger_transactions DISABLE TRIGGER USER; INSERT INTO ledger_transactions (id, reference) VALUES ('broken', 'fixture')",
 			[]string{"transaction_unposted", "transaction_entry_count"}},

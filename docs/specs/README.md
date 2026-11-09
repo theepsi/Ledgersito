@@ -43,4 +43,4 @@ smallest correct behavior, and refactor with passing tests.
   scenarios. Implemented and verified against PostgreSQL.
 - [Ledger Reconciliation](reconciliation.md): approved read-only verification
   of ledger balances, history, fixed supply, and system-account invariants.
-  Implemented; PostgreSQL execution checks are pending.
+  Implemented and verified against PostgreSQL.

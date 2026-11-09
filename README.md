@@ -84,8 +84,8 @@ The text report lists every detected invariant finding. Process exit codes are
 `0` consistent, `1` findings, `2` operational failure, and `3` cleanly
 uninitialized. Build and run the executable when exact codes are needed:
 `go run` may itself exit `1` for any nonzero program exit.
-See the [reconciliation spec](docs/specs/reconciliation.md). Implementation is
-in place; real-PostgreSQL reconciliation checks are still pending.
+See the [reconciliation spec](docs/specs/reconciliation.md). The feature has
+passed its real-PostgreSQL acceptance checks.
 
 Run the domain and application tests without Docker:
 

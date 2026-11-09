@@ -2,8 +2,8 @@
 
 ## Status and purpose
 
-Approved and implemented. PostgreSQL execution checks are pending;
-database setup and execution remain user-controlled.
+Approved, implemented, and verified against PostgreSQL. Reconciliation of the
+existing local ledger reported it consistent.
 
 Independently verify persisted ledger correctness without changing account
 balances, ledger history, replay records, initialization state, or schema. This
