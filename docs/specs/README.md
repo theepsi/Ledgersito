@@ -49,3 +49,5 @@ smallest correct behavior, and refactor with passing tests.
   Implemented and verified against PostgreSQL.
 - [Transaction History](transaction-history.md): approved read-only listing of
   posted transactions and signed entries, with stable entry-ID ordering.
+- [Continuous Integration](ci.md): approved automation for existing quality,
+  generation, unit, and PostgreSQL integration checks.
