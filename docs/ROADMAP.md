@@ -23,24 +23,27 @@ implement every candidate below.
   fixed supply, and system invariants in one consistent snapshot; focused
   PostgreSQL acceptance tests pass, and the existing local ledger reconciled
   successfully.
+- Read-only `GET /transactions` lists posted transactions and signed entries in
+  deterministic entry-ID order; its isolated PostgreSQL integration check
+  passed. The schema has no timestamps, so this is not a wall-clock timeline;
+  see the [transaction history spec](specs/transaction-history.md).
 - The user has also tried the account/transfer API manually.
 
 ## Later candidates, not yet approved
 
 1. CI for existing formatting, lint, unit, SQL-generation, and database checks.
-2. Read-only transaction/history queries to explore entries and transfers.
-3. Ledger analytics: read-only statistics for transfer counts and amounts,
+2. Ledger analytics: read-only statistics for transfer counts and amounts,
    reservoir distribution, and funds in circulation. Define units, time windows,
    required timestamps, and snapshot semantics before implementation; distinguish
    reservoir distribution from subsequent circulation to avoid double counting.
-4. OpenAPI documentation and self-contained public setup/design documentation.
-5. Transactional outbox and repeated-delivery safety, if still useful for learning.
-6. Operational observability: health/readiness checks, structured logs, request
+3. OpenAPI documentation and self-contained public setup/design documentation.
+4. Transactional outbox and repeated-delivery safety, if still useful for learning.
+5. Operational observability: health/readiness checks, structured logs, request
    and database latency/error metrics, and tracing as separately agreed specs.
    Explore an external collection/dashboard stack, then use a controlled failure
    to learn diagnosis and useful alerting. Keep account IDs and idempotency keys
    out of metric labels; avoid sensitive data in telemetry.
-7. Final review of learning goals, invariants, limitations, and completion criteria.
+6. Final review of learning goals, invariants, limitations, and completion criteria.
 
 Ledger analytics answers what happened to funds; operational observability
 answers how the service behaves. Reconciliation independently checks persisted
@@ -53,7 +56,10 @@ or real-world deployment requirements are implied.
 
 ## Working agreement for future sessions
 
-- Explain concepts and tradeoffs; agree on one clear spec at a time.
+- Explain concepts and tradeoffs; write each feature spec as a draft in
+  `docs/specs/`, review and revise it with the user, then wait for their explicit
+  approval before implementation. Do not infer approval from general enthusiasm.
+  Work on one clear spec at a time.
 - Follow spec-first TDD: focused failing tests, minimal implementation, then
   refactor and run relevant checks. Keep code professional and comments sparse.
 - The user controls installations, Docker/services, database preparation,

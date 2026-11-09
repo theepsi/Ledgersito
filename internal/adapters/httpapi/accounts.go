@@ -27,6 +27,7 @@ type Handler struct {
 	service   Service
 	logger    *slog.Logger
 	transfers TransferService
+	history   HistoryService
 }
 
 func New(service Service, logger *slog.Logger) *Handler {
@@ -36,6 +37,10 @@ func New(service Service, logger *slog.Logger) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/transfers" && r.URL.RawPath == "" && h.transfers != nil {
 		h.serveTransfer(w, r)
+		return
+	}
+	if r.URL.Path == "/transactions" && r.URL.RawPath == "" && h.history != nil {
+		h.serveHistory(w, r)
 		return
 	}
 	if r.URL.Path != "/accounts" || r.URL.RawPath != "" {

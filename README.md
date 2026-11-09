@@ -21,12 +21,29 @@ then ID. Names are non-unique labels; balances use integer sititos.
 `POST /transfers` moves existing funds atomically with balanced entries and
 idempotent retries. Features are specified and developed one at a time using
 spec-first TDD.
+`GET /transactions` exposes posted transaction history and signed entries
+without changing the ledger.
 
 Names and account-creation idempotency have passed database and manual API
 checks. One-time fixed-supply initialization has also passed its PostgreSQL
 integration checks.
 Transfers have passed unit and real-PostgreSQL integration checks, including
 concurrency, replay, rollback, and timeout scenarios.
+
+## Local database environment
+
+The local `.env` file is gitignored. Keep `DATABASE_URL` and
+`TEST_DATABASE_URL` there, using `.env.example` as a template. Load both into a
+new shell before running Go commands:
+
+```sh
+set -a
+. ./.env
+set +a
+```
+
+Use `DATABASE_URL` for the development ledger and `TEST_DATABASE_URL` only for
+the disposable `ledger_test` database.
 
 ## Fixed-supply learning scenario
 
@@ -86,6 +103,13 @@ uninitialized. Build and run the executable when exact codes are needed:
 `go run` may itself exit `1` for any nonzero program exit.
 See the [reconciliation spec](docs/specs/reconciliation.md). The feature has
 passed its real-PostgreSQL acceptance checks.
+
+## Transaction history
+
+`GET /transactions` returns posted transactions and their signed entries in
+deterministic entry-ID order. The schema does not record timestamps, so this
+ordering is not a wall-clock timeline. See the
+[transaction history spec](docs/specs/transaction-history.md).
 
 Run the domain and application tests without Docker:
 
