@@ -1,6 +1,9 @@
 # Feature specifications
 
-Agree on one feature spec at a time before implementing behavior.
+For each feature, create a draft spec first. Review and revise it with the user,
+then wait for their explicit approval before implementation; discussion or
+general enthusiasm is not approval. Keep the spec as the source of truth as the
+feature is implemented.
 
 Each spec should state:
 
@@ -44,3 +47,5 @@ smallest correct behavior, and refactor with passing tests.
 - [Ledger Reconciliation](reconciliation.md): approved read-only verification
   of ledger balances, history, fixed supply, and system-account invariants.
   Implemented and verified against PostgreSQL.
+- [Transaction History](transaction-history.md): approved read-only listing of
+  posted transactions and signed entries, with stable entry-ID ordering.
