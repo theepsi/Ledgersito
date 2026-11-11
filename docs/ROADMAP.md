@@ -28,24 +28,37 @@ implement every candidate below.
   passed. The schema has no timestamps, so this is not a wall-clock timeline;
   see the [transaction history spec](specs/transaction-history.md).
 - GitHub Actions CI runs Go formatting, unit tests, vet, lint, sqlc generation
-  consistency, and PostgreSQL integration, initialization, and migration checks.
-  See the [CI spec](specs/ci.md).
+  consistency, and PostgreSQL integration, initialization, and migration checks
+  using Node 24-compatible actions. See the [CI spec](specs/ci.md).
 - The user has also tried the account/transfer API manually.
 
-## Later candidates, not yet approved
+## Pending candidates and suggested priorities
 
-1. Ledger analytics: read-only statistics for transfer counts and amounts,
-   reservoir distribution, and funds in circulation. Define units, time windows,
-   required timestamps, and snapshot semantics before implementation; distinguish
-   reservoir distribution from subsequent circulation to avoid double counting.
-2. OpenAPI documentation and self-contained public setup/design documentation.
-3. Transactional outbox and repeated-delivery safety, if still useful for learning.
-4. Operational observability: health/readiness checks, structured logs, request
-   and database latency/error metrics, and tracing as separately agreed specs.
-   Explore an external collection/dashboard stack, then use a controlled failure
-   to learn diagnosis and useful alerting. Keep account IDs and idempotency keys
-   out of metric labels; avoid sensitive data in telemetry.
-5. Final review of learning goals, invariants, limitations, and completion criteria.
+These are recommendations for sequencing, not approval to implement. Draft and
+review one spec at a time before implementation.
+
+1. **P1 — Ledger analytics:** Add read-only statistics for transfer counts and
+   amounts, reservoir distribution, and funds in circulation. This naturally
+   builds on transaction history. Define units, time windows, required
+   timestamps, and snapshot semantics first; distinguish reservoir distribution
+   from subsequent circulation to avoid double counting.
+2. **P2 — API and public documentation:** Add OpenAPI documentation and
+   self-contained public setup/design documentation. The local
+   `docs/DESIGN.md` and `docs/SETUP.md` remain intentionally untracked; keep
+   those copies untouched and settle the public-document scope in its spec.
+3. **P3 — Operational observability:** Add separately specified health/readiness
+   checks, structured logs, request/database latency and error metrics, and
+   tracing. Start with small instrumentation; consider an external
+   collection/dashboard stack only after agreeing on its learning purpose and
+   setup. Keep account IDs and idempotency keys out of metric labels and avoid
+   sensitive telemetry.
+4. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
+   still serves a specific learning goal; defer it until a concrete event
+   delivery use case is agreed.
+5. **P5 — Final learning review:** Review learning goals, invariants,
+   limitations, and completion criteria after selecting or completing the
+   desired candidates. Move this earlier if the goal is to decide whether any
+   further feature work is worthwhile.
 
 Ledger analytics answers what happened to funds; operational observability
 answers how the service behaves. Reconciliation independently checks persisted
@@ -53,8 +66,9 @@ correctness: neither dashboards nor successful-request metrics replace it.
 Build small read-only queries and instrumentation first, then choose external
 tools only when their learning purpose and setup are agreed.
 
-Ordering and scope remain open. No users/authentication, extra issuance, fees,
-or real-world deployment requirements are implied.
+The priorities are provisional and scope remains open. No
+users/authentication, extra issuance, fees, or real-world deployment
+requirements are implied.
 
 ## Working agreement for future sessions
 
