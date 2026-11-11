@@ -99,4 +99,4 @@ jobs:
         run: go test -tags=integration,initializationcheck -count=1 ./internal/adapters/postgres
 
       - name: Run isolated migration checks
-        run: go test -tags=integration,migrationcheck -count=1 -run TestNameMigration ./internal/adapters/postgres
+        run: go test -tags=integration,migrationcheck -count=1 -run 'Test(NameMigration|PostedAtMigration)' ./internal/adapters/postgres

@@ -54,7 +54,7 @@ func initializationDB(t *testing.T, populated bool) (*pgx.Conn, context.Context)
 	})
 	for _, file := range []string{
 		"00001_create_accounts.sql", "00002_account_names_and_replays.sql", "00003_ledger_initialization.sql",
-		"00004_transfers.sql",
+		"00004_transfers.sql", "00005_transaction_posted_at.sql",
 	} {
 		if populated && file == "00003_ledger_initialization.sql" {
 			if _, err := scoped.Exec(ctx, "INSERT INTO accounts (id, name, balance) VALUES ('legacy', 'Preserved name', 42)"); err != nil {
@@ -90,6 +90,13 @@ func TestInitializationIntegration(t *testing.T) {
 	var count int
 	if err := conn.QueryRow(ctx, "SELECT count(*) FROM ledger_transactions").Scan(&count); err != nil || count != 1 {
 		t.Fatalf("opening count: %d %v", count, err)
+	}
+	var postedAt time.Time
+	if err := conn.QueryRow(ctx, "SELECT posted_at FROM ledger_transactions WHERE id = 'system-opening'").Scan(&postedAt); err != nil {
+		t.Fatal(err)
+	}
+	if postedAt.IsZero() {
+		t.Fatal("opening transaction has no posting timestamp")
 	}
 	var total int64
 	if err := conn.QueryRow(ctx, "SELECT sum(amount)::bigint FROM entries").Scan(&total); err != nil || total != 0 {

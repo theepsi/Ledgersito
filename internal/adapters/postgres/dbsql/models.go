@@ -39,6 +39,7 @@ type LedgerTransaction struct {
 	ID        string
 	Reference string
 	Posted    bool
+	PostedAt  pgtype.Timestamptz
 }
 
 type TransferReplay struct {
