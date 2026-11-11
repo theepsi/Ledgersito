@@ -48,6 +48,9 @@ smallest correct behavior, and refactor with passing tests.
   of ledger balances, history, fixed supply, and system-account invariants.
   Implemented and verified against PostgreSQL.
 - [Transaction History](transaction-history.md): approved read-only listing of
-  posted transactions and signed entries, with stable entry-ID ordering.
+  posted transactions and signed entries, with stable entry-ID ordering and
+  database posting timestamps for new transactions.
+- [Ledger Analytics](ledger-analytics.md): draft read-only lifetime and
+  time-window aggregates distinguishing transfer activity from current funds.
 - [Continuous Integration](ci.md): approved automation for existing quality,
   generation, unit, and PostgreSQL integration checks.

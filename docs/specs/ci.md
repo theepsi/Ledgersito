@@ -36,7 +36,7 @@ Run the following checks, failing the workflow if any command fails:
   migrations to a disposable database named `ledger_test`, then run:
   - `go test -tags=integration -count=1 ./internal/adapters/postgres`
   - `go test -tags=integration,initializationcheck -count=1 ./internal/adapters/postgres`
-  - `go test -tags=integration,migrationcheck -count=1 -run TestNameMigration ./internal/adapters/postgres`
+  - `go test -tags=integration,migrationcheck -count=1 -run 'Test(NameMigration|PostedAtMigration)' ./internal/adapters/postgres`
 
 The database job must use only the CI service database. Initialization checks
 may create and remove uniquely named schemas as they do locally. No CI command

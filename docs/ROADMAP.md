@@ -25,8 +25,9 @@ implement every candidate below.
   successfully.
 - Read-only `GET /transactions` lists posted transactions and signed entries in
   deterministic entry-ID order; its isolated PostgreSQL integration check
-  passed. The schema has no timestamps, so this is not a wall-clock timeline;
-  see the [transaction history spec](specs/transaction-history.md).
+  passed. Migration 5 records `posted_at` for newly posted transactions;
+  existing transactions retain unknown timestamps. The API remains ordered by
+  entry ID; see the [transaction history spec](specs/transaction-history.md).
 - GitHub Actions CI runs Go formatting, unit tests, vet, lint, sqlc generation
   consistency, and PostgreSQL integration, initialization, and migration checks
   using Node 24-compatible actions. See the [CI spec](specs/ci.md).
@@ -39,9 +40,10 @@ review one spec at a time before implementation.
 
 1. **P1 — Ledger analytics:** Add read-only statistics for transfer counts and
    amounts, reservoir distribution, and funds in circulation. This naturally
-   builds on transaction history. Define units, time windows, required
-   timestamps, and snapshot semantics first; distinguish reservoir distribution
-   from subsequent circulation to avoid double counting.
+   builds on transaction history and can filter flow metrics by `posted_at`.
+   Legacy transactions without timestamps must be reported as untimestamped.
+   See the [draft spec](specs/ledger-analytics.md) and resolve its open choices
+   before implementation.
 2. **P2 — API and public documentation:** Add OpenAPI documentation and
    self-contained public setup/design documentation. The local
    `docs/DESIGN.md` and `docs/SETUP.md` remain intentionally untracked; keep

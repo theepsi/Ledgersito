@@ -107,8 +107,11 @@ passed its real-PostgreSQL acceptance checks.
 ## Transaction history
 
 `GET /transactions` returns posted transactions and their signed entries in
-deterministic entry-ID order. The schema does not record timestamps, so this
-ordering is not a wall-clock timeline. See the
+deterministic entry-ID order. The database records `posted_at` for transactions
+posted after migration 5; earlier transactions remain explicitly unknown rather
+than receiving fabricated dates. `GET /transactions` does not expose the
+timestamp in this version. The metadata does not change API ordering, and its
+value is not an exact commit timestamp or ordering. See the
 [transaction history spec](docs/specs/transaction-history.md).
 
 Run the domain and application tests without Docker:
