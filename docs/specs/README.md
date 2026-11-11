@@ -53,5 +53,8 @@ smallest correct behavior, and refactor with passing tests.
 - [Ledger Analytics](ledger-analytics.md): approved and implemented read-only
   lifetime and time-window aggregates distinguishing transfer activity from
   current funds, including exact volumes and legacy timestamp coverage.
+- [API and Public Documentation](public-documentation.md): approved and
+  implemented hand-maintained OpenAPI 3.1 contract, tracked public setup/design
+  guides, and matching local/CI reference and example validation.
 - [Continuous Integration](ci.md): approved automation for existing quality,
   generation, unit, and PostgreSQL integration checks.

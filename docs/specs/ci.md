@@ -31,6 +31,11 @@ Run the following checks, failing the workflow if any command fails:
 - Run `go vet ./...`.
 - Run `golangci-lint run` using the repository's v2 configuration.
 - Run `sqlc generate`, then fail if generation changes tracked generated code.
+- Run `make lint-openapi` in an independent Node 24 job, using pinned
+  `@redocly/cli@2.77.0` with telemetry disabled. Validate OpenAPI 3.1 structure,
+  references, and examples with `redocly.yaml`; do not upload API definitions
+  or add a runtime Node dependency. See the
+  [public documentation spec](public-documentation.md).
 - Run the non-database checks and PostgreSQL checks as parallel jobs.
 - On every pull request, use an ephemeral PostgreSQL service, apply the current
   migrations to a disposable database named `ledger_test`, then run:
@@ -48,8 +53,8 @@ may point at development or production data.
 ## Acceptance criteria
 
 - Pull-request and branch-push changes run the configured checks automatically.
-- A failure in formatting, tests, vet, lint, generated-code consistency, or
-  database checks marks the workflow failed.
+- A failure in formatting, tests, vet, lint, OpenAPI validation,
+  generated-code consistency, or database checks marks the workflow failed.
 - SQL generation is verified without silently accepting or committing generated
   differences.
 - PostgreSQL integration checks run against a fresh disposable CI service and

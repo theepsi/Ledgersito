@@ -1,0 +1,686 @@
+openapi: 3.1.0
+info:
+  title: Ledgersito API
+  version: 1.0.0
+  description: |
+    Educational Go/PostgreSQL ledger for fictional SITO; not a production or
+    real-money system. Accounts are ledger accounts, not users. There is no
+    authentication, authorization, or security-review claim.
+
+    Paths match exactly: trailing slashes and encoded aliases are not accepted.
+    Unknown paths return 404 not_found. Unsupported methods, including HEAD,
+    return 405 method_not_allowed with the route's Allow header. No redirects
+    or documentation-serving endpoint are provided.
+
+    All defined responses use application/json. Application/database operations
+    have a five-second deadline; expiration returns 503 request_timeout if a
+    response can still be sent. Transport failures and HTTP-server limits are
+    not guaranteed to use this JSON envelope. A POST timeout does not prove
+    rollback: retry the exact payload with the same idempotency key.
+
+    Strict JSON parsing rejects duplicate/unknown fields, null fields, malformed
+    UTF-8, unpaired surrogate escapes, trailing JSON, and non-object bodies.
+    Schemas alone cannot enforce all token, header, routing, Unicode, or
+    query-multiplicity rules. Integer JSON values may exceed JavaScript's exact
+    number range; clients must preserve int64 values without rounding.
+servers:
+  - url: http://127.0.0.1:8080
+    description: Default local development address; configurable with HTTP_ADDR.
+security: []
+tags:
+  - name: Accounts
+    description: Named ledger accounts and their current balances.
+  - name: Transfers
+    description: Atomic movement of already-existing funds.
+  - name: History
+    description: Read-only posted transactions and signed entries.
+  - name: Analytics
+    description: Read-only transfer flows and current stock metrics.
+paths:
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [Accounts]
+      summary: List all accounts
+      description: |
+        Order by name, then ID. Includes ordinary, reservoir, and origin
+        accounts after explicit initialization. Empty results use [], not null.
+        No idempotency key is required. Query strings, including a bare ?,
+        are rejected. This operation never initializes or writes ledger data.
+      responses:
+        '200':
+          description: Current accounts, whether or not the ledger is initialized.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Account'
+              examples:
+                empty:
+                  value: {accounts: []}
+                ordinaryAccount:
+                  value:
+                    accounts:
+                      - id: example-alice
+                        name: Alice
+                        role: ordinary
+                        balance: {sititos: 250, currency: SITO}
+        '400':
+          description: invalid_request for unsupported query strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/AccountsMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Timeout'
+    post:
+      operationId: createAccount
+      tags: [Accounts]
+      summary: Create an ordinary account or replay its creation
+      description: |
+        Supply only name. Trim Unicode whitespace before validating 1-100
+        Unicode code points with no control characters. Names are non-unique
+        labels; generated opaque IDs identify accounts. New accounts start at
+        zero sititos and callers cannot choose a role.
+
+        Require exactly one Content-Type value: application/json, optionally
+        with charset=utf-8 (case-insensitive); no other parameters. Limit the
+        body to 4096 bytes including whitespace. Query strings are rejected.
+
+        Idempotency compares the normalized name. Same-key/same-name retries
+        return the original 201 status and stored body, not current balances.
+        A different normalized name with a committed key returns 422.
+        Only successful responses reserve keys; keys do not expire. Account
+        creation keys are separate from transfer keys. Historical stored
+        creation responses may lack role; new creations include ordinary.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: |
+                    Normalized length must be 1-100 Unicode code points without
+                    controls. Whitespace is trimmed before measuring; raw input
+                    can therefore be longer than 100 code points.
+            example: {name: Alice}
+      responses:
+        '201':
+          description: New ordinary account or exact original successful replay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedAccount'
+              examples:
+                newAccount:
+                  value:
+                    id: example-alice
+                    name: Alice
+                    role: ordinary
+                    balance: {sititos: 0, currency: SITO}
+                legacyReplay:
+                  value:
+                    id: example-legacy
+                    name: Savings
+                    balance: {sititos: 0, currency: SITO}
+        '400':
+          description: |
+            invalid_request (JSON/request shape, unreadable body, or query
+            string), invalid_name, missing_idempotency_key, or
+            invalid_idempotency_key. Repeated keys and comma-separated key
+            values are invalid. Failed requests do not create an account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: invalid_name
+                  message: Name must contain 1-100 Unicode code points after trimming, without control characters.
+        '405':
+          $ref: '#/components/responses/AccountsMethodNotAllowed'
+        '413':
+          $ref: '#/components/responses/BodyTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          description: idempotency_key_reused with a different normalized name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Timeout'
+  /transfers:
+    post:
+      operationId: createTransfer
+      tags: [Transfers]
+      summary: Transfer existing funds or replay a successful transfer
+      description: |
+        Require explicit ledger initialization and distinct existing account
+        IDs. Ordinary accounts send/receive; the reservoir only sends to
+        ordinary accounts; origin cannot participate. Reject insufficient
+        funds and int64 balance overflow. No fees or new supply are created.
+
+        Require exactly the three request fields, one application/json
+        Content-Type (optional UTF-8 charset only), and at most 4096 body
+        bytes including whitespace. Query strings are rejected.
+
+        amount_sititos must use positive int64 integer token notation.
+        Fractions, exponent notation, and quoted amounts are invalid_request,
+        even when mathematically integral. Zero, negative, and integer-shaped
+        out-of-range values are invalid_amount.
+
+        Entries, cached balances, and successful response commit atomically.
+        Idempotency compares source ID, destination ID, and integer amount.
+        After request validation, a committed replay or key conflict is resolved
+        before mutable business checks. Otherwise check initialization, account
+        existence, permitted roles, funds, then balance overflow in that order.
+        A replay returns the exact stored 201/body without transferring again
+        or checking later balances. Failed attempts do not reserve keys.
+        Keys are case-sensitive, do not expire, and are separate from account
+        creation keys. Concurrent same-key calls wait within the deadline.
+        After a timeout, retry the same key and payload to recover the outcome.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+            example:
+              source_account_id: system-reservoir
+              destination_account_id: example-alice
+              amount_sititos: 250
+      responses:
+        '201':
+          description: Transfer committed, or exact original successful replay; balances are not returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transfer'
+              example:
+                id: example-transfer
+                source_account_id: system-reservoir
+                destination_account_id: example-alice
+                amount: {sititos: 250, currency: SITO}
+        '400':
+          description: |
+            invalid_request, invalid_account_id (empty or Unicode whitespace),
+            invalid_amount, same_account, missing_idempotency_key, or
+            invalid_idempotency_key. Malformed-input error precedence is
+            unspecified; correct all invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: account_not_found for either source or destination.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          description: method_not_allowed; only POST is supported, including on HEAD requests.
+          headers:
+            Allow:
+              required: true
+              schema: {type: string, const: POST}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          $ref: '#/components/responses/NotInitialized'
+        '413':
+          $ref: '#/components/responses/BodyTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          description: |
+            idempotency_key_reused, account_not_transferable (origin involved or
+            reservoir destination), insufficient_funds, or balance_overflow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: insufficient_funds
+                  message: Source account has insufficient funds.
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Timeout'
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [History]
+      summary: List posted transactions and signed entries
+      description: |
+        Include the opening transaction. Order transactions by their smallest
+        entry ID, ascending; order each transaction's entries by entry ID.
+        This is deterministic allocation order, not wall-clock or commit order.
+        No posted_at field is exposed. Include id, reference (which may be
+        empty), and entries with signed sititos. Empty results use [], not
+        null. No idempotency key or initialization is required; query strings
+        are rejected. This operation does not write or repair ledger data.
+      responses:
+        '200':
+          description: Posted history, including opening entries when initialized.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [transactions]
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+              examples:
+                empty:
+                  value: {transactions: []}
+                opening:
+                  value:
+                    transactions:
+                      - id: system-opening
+                        reference: initial supply
+                        entries:
+                          - entry_id: 1
+                            account_id: system-origin
+                            amount: {sititos: -100000000, currency: SITO}
+                          - entry_id: 2
+                            account_id: system-reservoir
+                            amount: {sititos: 100000000, currency: SITO}
+        '400':
+          description: invalid_request for unsupported query strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/GetMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Timeout'
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags: [Analytics]
+      summary: Summarize transfer flows and current stock
+      description: |
+        Require an explicitly initialized ledger. Exclude the opening
+        transaction and do not count idempotent replays as transfers.
+        With no query string, return lifetime flows including transfers whose
+        historical posted_at is unknown. Alternatively supply exactly one
+        from and one to timestamp with explicit RFC 3339 offsets and from < to.
+        Normalize returned bounds to UTC. Apply from <= posted_at < to.
+
+        A single bound, malformed/equal/reversed bounds, duplicate/unknown
+        parameters, empty query components, or bare ? return invalid_request.
+        Encode positive offsets as %2B or use curl --data-urlencode.
+
+        Bounded flows exclude unknown timestamps. timestamp_coverage always
+        reports whole-ledger untimestamped transfers, even for bounded flows.
+        current reports current snapshot balances, NOT historical balances at
+        the window end. Read everything in one repeatable-read, read-only
+        snapshot. No state is changed or repaired; reconciliation remains the
+        authoritative invariant diagnostic.
+
+        Total volume counts each negative source entry's amount once.
+        Reservoir distribution is flow into circulation; ordinary-to-ordinary
+        volume is movement of already-distributed funds and may exceed supply.
+        Current ordinary balances equal lifetime reservoir distribution under
+        current policy, but these are different stock/flow concepts and must
+        not be added as separate portions of supply.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Inclusive RFC 3339 lower bound, requiring to and from < to.
+          schema: {type: string, format: date-time}
+          example: '2026-01-01T00:00:00Z'
+        - name: to
+          in: query
+          required: false
+          description: Exclusive RFC 3339 upper bound, requiring from and from < to.
+          schema: {type: string, format: date-time}
+          example: '2026-02-01T00:00:00Z'
+      responses:
+        '200':
+          description: Flow metrics, whole-ledger timestamp coverage, and current stock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+              example:
+                period: lifetime
+                transfers:
+                  count: 2
+                  total_volume: {sititos: '320', currency: SITO}
+                  reservoir_distribution:
+                    count: 1
+                    volume: {sititos: '250', currency: SITO}
+                  ordinary_to_ordinary:
+                    count: 1
+                    volume: {sititos: '70', currency: SITO}
+                timestamp_coverage:
+                  untimestamped_transfer_count: 0
+                  untimestamped_transfer_volume: {sititos: '0', currency: SITO}
+                current:
+                  funds_in_circulation: {sititos: 250, currency: SITO}
+                  reservoir_balance: {sititos: 99999750, currency: SITO}
+                  total_supply: {sititos: 100000000, currency: SITO}
+        '400':
+          description: invalid_request for invalid, unpaired, or unsupported query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/GetMethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/NotInitialized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Timeout'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Exactly one value, untrimmed and case-sensitive. Repeated headers and
+        comma-separated values are invalid. Use a random key for each new
+        operation, then retain it for retries of that exact operation.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '^[A-Za-z0-9_-]+$'
+      example: demo-funding-001
+  schemas:
+    AccountID:
+      type: string
+      minLength: 1
+      description: Nonempty ID without Unicode whitespace; never trimmed or case-normalized.
+    Name:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: Non-unique normalized label of 1-100 Unicode code points without control characters.
+    Amount:
+      type: object
+      additionalProperties: false
+      required: [sititos, currency]
+      properties:
+        sititos:
+          type: integer
+          format: int64
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        currency: {type: string, const: SITO}
+    PositiveAmount:
+      allOf:
+        - $ref: '#/components/schemas/Amount'
+        - type: object
+          properties:
+            sititos: {type: integer, minimum: 1}
+    Volume:
+      type: object
+      additionalProperties: false
+      required: [sititos, currency]
+      properties:
+        sititos:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)$'
+          description: Exact nonnegative decimal integer, not narrowed to int64.
+          examples: ['0', '320', '10000000000000000000']
+        currency: {type: string, const: SITO}
+    Account:
+      type: object
+      additionalProperties: false
+      required: [id, name, role, balance]
+      properties:
+        id:
+          $ref: '#/components/schemas/AccountID'
+        name:
+          $ref: '#/components/schemas/Name'
+        role:
+          type: string
+          enum: [ordinary, reservoir, origin]
+        balance:
+          $ref: '#/components/schemas/Amount'
+    CreatedAccount:
+      type: object
+      additionalProperties: false
+      required: [id, name, balance]
+      description: |
+        Creation-time response, not current state. New records include
+        role=ordinary; old stored responses may omit role on replay.
+      properties:
+        id:
+          $ref: '#/components/schemas/AccountID'
+        name:
+          $ref: '#/components/schemas/Name'
+        role: {type: string, const: ordinary}
+        balance:
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+            - type: object
+              properties:
+                sititos: {type: integer, const: 0}
+    TransferRequest:
+      type: object
+      additionalProperties: false
+      required: [source_account_id, destination_account_id, amount_sititos]
+      properties:
+        source_account_id:
+          $ref: '#/components/schemas/AccountID'
+        destination_account_id:
+          $ref: '#/components/schemas/AccountID'
+        amount_sititos:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Integer token notation only; sufficient funds and distinct IDs are checked separately.
+    Transfer:
+      type: object
+      additionalProperties: false
+      required: [id, source_account_id, destination_account_id, amount]
+      properties:
+        id: {type: string, minLength: 1}
+        source_account_id:
+          $ref: '#/components/schemas/AccountID'
+        destination_account_id:
+          $ref: '#/components/schemas/AccountID'
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+    Entry:
+      type: object
+      additionalProperties: false
+      required: [entry_id, account_id, amount]
+      properties:
+        entry_id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+        account_id:
+          $ref: '#/components/schemas/AccountID'
+        amount:
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+            - type: object
+              properties:
+                sititos:
+                  type: integer
+                  not: {const: 0}
+    Transaction:
+      type: object
+      additionalProperties: false
+      required: [id, reference, entries]
+      properties:
+        id: {type: string, minLength: 1}
+        reference: {type: string}
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+    TransferCategory:
+      type: object
+      additionalProperties: false
+      required: [count, volume]
+      properties:
+        count: {type: integer, format: int64, minimum: 0}
+        volume:
+          $ref: '#/components/schemas/Volume'
+    Analytics:
+      type: object
+      additionalProperties: false
+      required: [period, transfers, timestamp_coverage, current]
+      properties:
+        period:
+          oneOf:
+            - type: string
+              const: lifetime
+            - type: object
+              additionalProperties: false
+              required: [from, to]
+              properties:
+                from: {type: string, format: date-time}
+                to: {type: string, format: date-time}
+          examples:
+            - lifetime
+            - from: '2026-01-01T00:00:00Z'
+              to: '2026-02-01T00:00:00Z'
+        transfers:
+          type: object
+          additionalProperties: false
+          required: [count, total_volume, reservoir_distribution, ordinary_to_ordinary]
+          properties:
+            count: {type: integer, format: int64, minimum: 0}
+            total_volume:
+              $ref: '#/components/schemas/Volume'
+            reservoir_distribution:
+              $ref: '#/components/schemas/TransferCategory'
+            ordinary_to_ordinary:
+              $ref: '#/components/schemas/TransferCategory'
+        timestamp_coverage:
+          type: object
+          additionalProperties: false
+          required: [untimestamped_transfer_count, untimestamped_transfer_volume]
+          properties:
+            untimestamped_transfer_count: {type: integer, format: int64, minimum: 0}
+            untimestamped_transfer_volume:
+              $ref: '#/components/schemas/Volume'
+        current:
+          type: object
+          additionalProperties: false
+          required: [funds_in_circulation, reservoir_balance, total_supply]
+          description: Current snapshot, not historical stock at the requested window end.
+          properties:
+            funds_in_circulation:
+              $ref: '#/components/schemas/Amount'
+            reservoir_balance:
+              $ref: '#/components/schemas/Amount'
+            total_supply:
+              $ref: '#/components/schemas/Amount'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable code; applicable values are listed per response.
+            message:
+              type: string
+              description: Human-readable explanation without internal details; clients branch on code, not message.
+  responses:
+    AccountsMethodNotAllowed:
+      description: method_not_allowed; only GET and POST are supported.
+      headers:
+        Allow:
+          required: true
+          schema: {type: string, const: 'GET, POST'}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    GetMethodNotAllowed:
+      description: method_not_allowed; only GET is supported, including on HEAD requests.
+      headers:
+        Allow:
+          required: true
+          schema: {type: string, const: GET}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BodyTooLarge:
+      description: request_too_large; body exceeds 4096 bytes including whitespace.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnsupportedMediaType:
+      description: unsupported_media_type; require one application/json Content-Type with optional UTF-8 charset only.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotInitialized:
+      description: ledger_not_initialized; initialize explicitly using cmd/initledger.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: internal_error; storage/encoding or other unexpected failure, never successful empty data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: {code: internal_error, message: An internal error occurred.}
+    Timeout:
+      description: |
+        request_timeout; the operation deadline expired. For POST, commit may
+        already have happened: retry with the same key and payload. Read-only
+        operations do not change ledger state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -1,0 +1,7 @@
+extends:
+  - spec
+telemetry: off
+rules:
+  no-unresolved-refs: error
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error

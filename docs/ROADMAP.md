@@ -35,27 +35,31 @@ implement every candidate below.
 - GitHub Actions CI runs Go formatting, unit tests, vet, lint, sqlc generation
   consistency, and PostgreSQL integration, initialization, and migration checks
   using Node 24-compatible actions. See the [CI spec](specs/ci.md).
-- The user has also tried the account/transfer API manually.
+- P2 public documentation provides a hand-maintained
+  [OpenAPI contract](openapi.yaml), [setup guide](getting-started.md), and
+  [architecture guide](architecture.md), with matching local/CI semantic,
+  reference, and example validation. See the
+  [documentation spec](specs/public-documentation.md). The fresh-database
+  walkthrough remains a documented manual check, not an executed acceptance
+  claim.
+- The user has also tried the account/transfer API and verified analytics
+  manually, including existing untimestamped transfers.
 
 ## Pending candidates and suggested priorities
 
 These are recommendations for sequencing, not approval to implement. Draft and
 review one spec at a time before implementation.
 
-1. **P2 — API and public documentation:** Add OpenAPI documentation and
-   self-contained public setup/design documentation. The local
-   `docs/DESIGN.md` and `docs/SETUP.md` remain intentionally untracked; keep
-   those copies untouched and settle the public-document scope in its spec.
-2. **P3 — Operational observability:** Add separately specified health/readiness
+1. **P3 — Operational observability:** Add separately specified health/readiness
    checks, structured logs, request/database latency and error metrics, and
    tracing. Start with small instrumentation; consider an external
    collection/dashboard stack only after agreeing on its learning purpose and
    setup. Keep account IDs and idempotency keys out of metric labels and avoid
    sensitive telemetry.
-3. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
+2. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
    still serves a specific learning goal; defer it until a concrete event
    delivery use case is agreed.
-4. **P5 — Final learning review:** Review learning goals, invariants,
+3. **P5 — Final learning review:** Review learning goals, invariants,
    limitations, and completion criteria after selecting or completing the
    desired candidates. Move this earlier if the goal is to decide whether any
    further feature work is worthwhile.

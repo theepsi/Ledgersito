@@ -142,7 +142,8 @@ Run the domain and application tests without Docker:
 go test -v ./internal/domain/... ./internal/application/...
 ```
 
-- [Local setup](docs/SETUP.md)
-- [Architecture](docs/DESIGN.md)
+- [Public setup and verification](docs/getting-started.md)
+- [Architecture and correctness](docs/architecture.md)
+- [OpenAPI 3.1 contract](docs/openapi.yaml) (`make lint-openapi` locally and in CI)
 - [Feature specifications](docs/specs/README.md)
 - [Learning roadmap and session handoff](docs/ROADMAP.md)
