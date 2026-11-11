@@ -13,10 +13,12 @@ info:
     or documentation-serving endpoint are provided.
 
     All defined responses use application/json. Application/database operations
-    have a five-second deadline; expiration returns 503 request_timeout if a
-    response can still be sent. Transport failures and HTTP-server limits are
-    not guaranteed to use this JSON envelope. A POST timeout does not prove
-    rollback: retry the exact payload with the same idempotency key.
+    and readiness checks have a five-second deadline; operation expiration
+    returns 503 request_timeout and readiness expiration returns 503 not_ready
+    if a response can still be sent. Health checks do not access the database.
+    Transport failures and HTTP-server limits are not guaranteed to use this
+    JSON envelope. A POST timeout does not prove rollback: retry the exact
+    payload with the same idempotency key.
 
     Strict JSON parsing rejects duplicate/unknown fields, null fields, malformed
     UTF-8, unpaired surrogate escapes, trailing JSON, and non-object bodies.
@@ -36,7 +38,70 @@ tags:
     description: Read-only posted transactions and signed entries.
   - name: Analytics
     description: Read-only transfer flows and current stock metrics.
+  - name: Operations
+    description: Process health and database/schema readiness checks.
 paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [Operations]
+      summary: Check process health
+      description: |
+        Return success if the HTTP process can answer. This does not access
+        PostgreSQL or check ledger initialization. Reject any query string,
+        including a bare ?. Only GET is supported.
+      responses:
+        '200':
+          description: The process can answer HTTP requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status: {type: string, const: ok}
+              example: {status: ok}
+        '400':
+          description: invalid_request for unsupported query strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/GetMethodNotAllowed'
+  /readyz:
+    get:
+      operationId: getReadiness
+      tags: [Operations]
+      summary: Check database and schema readiness
+      description: |
+        Return ready only when PostgreSQL is reachable and Goose migration 5 is
+        currently applied. This read-only check has a five-second deadline and
+        does not require ledger initialization. Reject any query string,
+        including a bare ?. Only GET is supported.
+      responses:
+        '200':
+          description: PostgreSQL and the required schema migration are ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status: {type: string, const: ready}
+              example: {status: ready}
+        '400':
+          description: invalid_request for unsupported query strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/GetMethodNotAllowed'
+        '503':
+          $ref: '#/components/responses/NotReady'
   /accounts:
     get:
       operationId: listAccounts
@@ -667,6 +732,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    NotReady:
+      description: not_ready; PostgreSQL is unavailable or the required migration is not applied.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: {code: not_ready, message: Service is not ready.}
     InternalError:
       description: internal_error; storage/encoding or other unexpected failure, never successful empty data.
       content:

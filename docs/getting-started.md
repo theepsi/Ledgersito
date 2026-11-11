@@ -109,6 +109,15 @@ BASE_URL=http://127.0.0.1:8080
 
 Adjust the URL if you explicitly changed `HTTP_ADDR`.
 
+The process-only health check does not access PostgreSQL. Readiness also
+requires the database and migration 5; it does not require ledger
+initialization:
+
+```sh
+curl -i "$BASE_URL/healthz"
+curl -i "$BASE_URL/readyz"
+```
+
 ## Create and move fictional funds
 
 These POST requests **change the ledger at the API's `DATABASE_URL`**.

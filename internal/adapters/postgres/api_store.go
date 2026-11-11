@@ -19,8 +19,36 @@ type APIStore struct {
 	config *pgx.ConnConfig
 }
 
+const requiredReadinessMigration int64 = 5
+
 func NewAPIStore(config *pgx.ConnConfig) *APIStore {
 	return &APIStore{config: config.Copy()}
+}
+
+func (s *APIStore) CheckReadiness(ctx context.Context) (err error) {
+	conn, err := pgx.ConnectConfig(ctx, s.config)
+	if err != nil {
+		return fmt.Errorf("connect for readiness check: %w", err)
+	}
+	defer func() {
+		if closeErr := conn.Close(ctx); closeErr != nil {
+			// Preserve the operation error while still reporting a failed close.
+			err = errors.Join(err, fmt.Errorf("close readiness connection: %w", closeErr))
+		}
+	}()
+	var applied bool
+	if err := conn.QueryRow(ctx, `
+SELECT is_applied
+FROM goose_db_version
+WHERE version_id = $1
+ORDER BY id DESC
+LIMIT 1`, requiredReadinessMigration).Scan(&applied); err != nil {
+		return fmt.Errorf("check readiness migration %d: %w", requiredReadinessMigration, err)
+	}
+	if !applied {
+		return fmt.Errorf("required readiness migration %d is not applied", requiredReadinessMigration)
+	}
+	return nil
 }
 
 func closeConnection(conn *pgx.Conn, result *error) {

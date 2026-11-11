@@ -82,7 +82,7 @@ func TestTransferHTTP(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &transferService{}
-			h := httpapi.NewRouter(&service{}, s, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			h := httpapi.NewRouter(&service{}, s, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			method, path, body, media, key := tt.method, tt.path, tt.body, tt.media, tt.key
 			if method == "" {
 				method = "POST"
@@ -147,7 +147,7 @@ func TestTransferHTTPErrors(t *testing.T) {
 	} {
 		t.Run(tt.code, func(t *testing.T) {
 			s := &transferService{err: tt.err}
-			h := httpapi.NewRouter(&service{}, s, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			h := httpapi.NewRouter(&service{}, s, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			r := httptest.NewRequest("POST", "/transfers", strings.NewReader(`{"source_account_id":"from","destination_account_id":"to","amount_sititos":25}`))
 			r.Header.Set("Content-Type", "application/json")
 			r.Header.Set("Idempotency-Key", "key")

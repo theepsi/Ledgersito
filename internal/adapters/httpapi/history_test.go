@@ -54,7 +54,7 @@ func TestTransactionHistoryHTTP(t *testing.T) {
 				}}
 			}
 			txHistory := &transactionHistory{transactions: transactions}
-			handler := httpapi.NewRouter(&service{}, nil, txHistory, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			handler := httpapi.NewRouter(&service{}, nil, txHistory, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
@@ -86,7 +86,7 @@ func TestTransactionHistoryErrors(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			txHistory := &transactionHistory{err: tt.err}
-			handler := httpapi.NewRouter(&service{}, nil, txHistory, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			handler := httpapi.NewRouter(&service{}, nil, txHistory, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			req := httptest.NewRequest("GET", "/transactions", nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)

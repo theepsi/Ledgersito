@@ -352,7 +352,7 @@ func TestTransferLockTimeoutIntegration(t *testing.T) {
 			}
 			request, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 			defer cancel()
-			h := httpapi.NewRouter(accounts.New(transferIDs{}, postgres.NewAPIStore(conn.Config())), service, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			h := httpapi.NewRouter(accounts.New(transferIDs{}, postgres.NewAPIStore(conn.Config())), service, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			r := httptest.NewRequest("POST", "/transfers", strings.NewReader(`{"source_account_id":"system-reservoir","destination_account_id":"alice","amount_sititos":25}`)).WithContext(request)
 			r.Header.Set("Content-Type", "application/json")
 			r.Header.Set("Idempotency-Key", "timeout")
@@ -372,7 +372,7 @@ func TestTransferLockTimeoutIntegration(t *testing.T) {
 
 func TestTransferHTTPIntegration(t *testing.T) {
 	conn, ctx, service := transferDB(t, true)
-	h := httpapi.NewRouter(accounts.New(transferIDs{}, postgres.NewAPIStore(conn.Config())), service, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := httpapi.NewRouter(accounts.New(transferIDs{}, postgres.NewAPIStore(conn.Config())), service, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	post := func(body string) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest("POST", "/transfers", strings.NewReader(body))

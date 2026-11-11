@@ -33,7 +33,7 @@ func (s *analyticsService) Execute(ctx context.Context, window *analytics.Window
 }
 
 func testRouter(analyticsSvc *analyticsService) *httpapi.Handler {
-	return httpapi.NewRouter(&service{}, nil, nil, analyticsSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return httpapi.NewRouter(&service{}, nil, nil, analyticsSvc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 func TestAnalyticsHTTP(t *testing.T) {

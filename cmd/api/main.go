@@ -69,7 +69,7 @@ func run(ctx context.Context, cfg config, logger *slog.Logger) error {
 	historyService := history.New(store)
 	analyticsService := analytics.New(store)
 	server := &http.Server{
-		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, logger),
+		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, store, logger),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,

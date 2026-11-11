@@ -40,7 +40,7 @@ are implemented.
 
 ## OpenAPI contract
 
-Cover five operations across the four existing paths:
+Cover seven operations across the six API paths:
 
 | Operation | Success | Main behavior |
 |---|---|---|
@@ -49,6 +49,8 @@ Cover five operations across the four existing paths:
 | `POST /transfers` | `201` | Transfer existing funds atomically or replay the original successful response. |
 | `GET /transactions` | `200` | List posted transactions and signed entries in deterministic entry-ID order. |
 | `GET /analytics` | `200` | Report lifetime or bounded transfer flows and current stock metrics. |
+| `GET /healthz` | `200` | Report process health without depending on PostgreSQL. |
+| `GET /readyz` | `200` | Report readiness only when PostgreSQL is reachable and migration 5 is applied. |
 
 For each operation, describe inputs, success/error schemas, applicable headers,
 examples, and the statuses/codes from its existing feature spec. Use reusable
@@ -62,6 +64,7 @@ numeric representations or all account responses.
   with each route's `Allow` header. HEAD is not an alias for GET.
 - Only analytics accepts query parameters. Document the existing rejection
   rules, including a bare query delimiter and duplicate/unknown parameters.
+  Health and readiness reject all query strings, including a bare `?`.
 - Describe the required POST media type, permitted UTF-8 charset, 4096-byte
   body limit, strict request fields, and relevant name/account-ID validation.
 - Explain restrictions OpenAPI schemas cannot fully enforce: duplicate JSON
