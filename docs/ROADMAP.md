@@ -28,6 +28,10 @@ implement every candidate below.
   passed. Migration 5 records `posted_at` for newly posted transactions;
   existing transactions retain unknown timestamps. The API remains ordered by
   entry ID; see the [transaction history spec](specs/transaction-history.md).
+- Read-only `GET /analytics` reports transfer flows and current stock, supports
+  optional `posted_at` windows, and reports legacy unknown timestamps. Exact
+  aggregate volumes and snapshot behavior are covered by PostgreSQL
+  integration checks; see the [analytics spec](specs/ledger-analytics.md).
 - GitHub Actions CI runs Go formatting, unit tests, vet, lint, sqlc generation
   consistency, and PostgreSQL integration, initialization, and migration checks
   using Node 24-compatible actions. See the [CI spec](specs/ci.md).
@@ -38,26 +42,20 @@ implement every candidate below.
 These are recommendations for sequencing, not approval to implement. Draft and
 review one spec at a time before implementation.
 
-1. **P1 — Ledger analytics:** Add read-only statistics for transfer counts and
-   amounts, reservoir distribution, and funds in circulation. This naturally
-   builds on transaction history and can filter flow metrics by `posted_at`.
-   Legacy transactions without timestamps must be reported as untimestamped.
-   See the [draft spec](specs/ledger-analytics.md) and resolve its open choices
-   before implementation.
-2. **P2 — API and public documentation:** Add OpenAPI documentation and
+1. **P2 — API and public documentation:** Add OpenAPI documentation and
    self-contained public setup/design documentation. The local
    `docs/DESIGN.md` and `docs/SETUP.md` remain intentionally untracked; keep
    those copies untouched and settle the public-document scope in its spec.
-3. **P3 — Operational observability:** Add separately specified health/readiness
+2. **P3 — Operational observability:** Add separately specified health/readiness
    checks, structured logs, request/database latency and error metrics, and
    tracing. Start with small instrumentation; consider an external
    collection/dashboard stack only after agreeing on its learning purpose and
    setup. Keep account IDs and idempotency keys out of metric labels and avoid
    sensitive telemetry.
-4. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
+3. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
    still serves a specific learning goal; defer it until a concrete event
    delivery use case is agreed.
-5. **P5 — Final learning review:** Review learning goals, invariants,
+4. **P5 — Final learning review:** Review learning goals, invariants,
    limitations, and completion criteria after selecting or completing the
    desired candidates. Move this earlier if the goal is to decide whether any
    further feature work is worthwhile.

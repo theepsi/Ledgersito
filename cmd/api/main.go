@@ -18,6 +18,7 @@ import (
 	"github.com/theepsi/Ledgersito/internal/adapters/httpapi"
 	"github.com/theepsi/Ledgersito/internal/adapters/postgres"
 	"github.com/theepsi/Ledgersito/internal/application/accounts"
+	"github.com/theepsi/Ledgersito/internal/application/analytics"
 	"github.com/theepsi/Ledgersito/internal/application/history"
 	"github.com/theepsi/Ledgersito/internal/application/transfers"
 )
@@ -66,8 +67,9 @@ func run(ctx context.Context, cfg config, logger *slog.Logger) error {
 	service := accounts.New(randomIDs{}, store)
 	transferService := transfers.New(randomIDs{}, store)
 	historyService := history.New(store)
+	analyticsService := analytics.New(store)
 	server := &http.Server{
-		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, logger),
+		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, logger),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,

@@ -2,14 +2,14 @@
 
 ## Status and purpose
 
-Draft; not approved for implementation.
+Approved and implemented.
 
 Expose read-only ledger-wide statistics to learn the difference between
 transfer activity (a flow) and funds currently held in circulation (a stock).
 The statistics complement transaction history and reconciliation; they do
 not replace either.
 
-## Proposed version 1 scope
+## Version 1 scope
 
 - Provide exact `GET /analytics`.
 - Require a successfully initialized ledger. An uninitialized ledger returns
@@ -36,7 +36,7 @@ not replace either.
 - The existing `GET /transactions` response does not expose `posted_at` in
   this change. Its deterministic entry-ID ordering remains unchanged.
 
-## Proposed metric definitions
+## Metric definitions
 
 - **Transfer count:** the number of posted transfer transactions after the
   opening transaction. In the current model, every posted non-opening
@@ -69,10 +69,12 @@ portions of supply. Total transfer volume is the sum of reservoir distributions
 and ordinary-to-ordinary transfer volume; it can exceed both the supply and
 the current funds in circulation.
 
-## Proposed HTTP behavior
+## HTTP behavior
 
 - Return `200 OK` with a JSON object containing `period`, transfer-flow metrics,
   timestamp coverage, and current stock metrics.
+- `period` is the string `"lifetime"` for an unbounded request, or an object
+  with normalized `from` and `to` RFC 3339 strings for a bounded request.
 - Accept either no time-bound query parameters or both `from` and `to`. Bounds
   must be RFC 3339 timestamps with an explicit UTC offset and must satisfy
   `from < to`. Interpret the window as half-open:
@@ -128,6 +130,17 @@ transfers:
 }
 ```
 
+For a bounded request, the period is represented as:
+
+```json
+{
+  "period": {
+    "from": "2026-01-01T00:00:00Z",
+    "to": "2026-02-01T00:00:00Z"
+  }
+}
+```
+
 The decimal strings for cumulative volume totals preserve exact values:
 transfer volume can exceed int64 even though the fixed supply and each account
 balance fit in int64. Snapshot balances and supply remain int64. Use exact
@@ -175,13 +188,14 @@ preparation and migration execution remain user-controlled.
 - Reconciliation findings, ledger repair, or changes to transfer semantics.
 - New issuance, changes to fixed supply, or support for real money.
 
-## Decisions for review
+## Implementation notes
 
-- Confirm the proposed decimal-string representation for cumulative volume
-  totals, which avoids int64 overflow and client precision loss.
-- Confirm that reporting both cumulative reservoir distribution and current
-  ordinary balances is useful despite their equality under the current policy.
-- Confirm optional `from`/`to` bounds and the proposed behavior for untimestamped
-  legacy transfers and current stock metrics in a bounded-window response.
-- Confirm the `/analytics` route and the proposed `409` response for an
-  uninitialized ledger.
+- Cumulative flow volumes and untimestamped legacy volume are encoded as
+  decimal strings to preserve exact PostgreSQL `numeric` aggregates beyond
+  int64 and JavaScript's exact integer range.
+- Flow and current-stock metrics are read by one aggregate query inside a
+  PostgreSQL `REPEATABLE READ`, read-only transaction.
+- Current stock values in bounded-window responses remain current snapshot
+  values; they are not historical balances at the window end.
+- `GET /transactions` continues to omit `posted_at`; this endpoint uses it
+  internally to filter bounded flow metrics.

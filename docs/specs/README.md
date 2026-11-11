@@ -50,7 +50,8 @@ smallest correct behavior, and refactor with passing tests.
 - [Transaction History](transaction-history.md): approved read-only listing of
   posted transactions and signed entries, with stable entry-ID ordering and
   database posting timestamps for new transactions.
-- [Ledger Analytics](ledger-analytics.md): draft read-only lifetime and
-  time-window aggregates distinguishing transfer activity from current funds.
+- [Ledger Analytics](ledger-analytics.md): approved and implemented read-only
+  lifetime and time-window aggregates distinguishing transfer activity from
+  current funds, including exact volumes and legacy timestamp coverage.
 - [Continuous Integration](ci.md): approved automation for existing quality,
   generation, unit, and PostgreSQL integration checks.

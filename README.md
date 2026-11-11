@@ -22,7 +22,8 @@ then ID. Names are non-unique labels; balances use integer sititos.
 idempotent retries. Features are specified and developed one at a time using
 spec-first TDD.
 `GET /transactions` exposes posted transaction history and signed entries
-without changing the ledger.
+without changing the ledger. `GET /analytics` reports read-only lifetime or
+time-window transfer flows and current ledger balances.
 
 Names and account-creation idempotency have passed database and manual API
 checks. One-time fixed-supply initialization has also passed its PostgreSQL
@@ -113,6 +114,27 @@ than receiving fabricated dates. `GET /transactions` does not expose the
 timestamp in this version. The metadata does not change API ordering, and its
 value is not an exact commit timestamp or ordering. See the
 [transaction history spec](docs/specs/transaction-history.md).
+
+## Ledger analytics
+
+After migration 5 is applied and the ledger is initialized, `GET /analytics`
+returns transfer counts and exact volumes, reservoir distributions, legacy
+timestamp coverage, current funds in circulation, the reservoir balance, and
+total supply. Add both `from` and `to` RFC 3339 bounds to filter transfer flows
+to a half-open time window; current balance metrics still describe the current
+snapshot. The endpoint is read-only and does not expose `posted_at` in
+`GET /transactions`.
+
+```sh
+curl http://127.0.0.1:8080/analytics
+curl --get \
+  --data-urlencode 'from=2026-01-01T00:00:00Z' \
+  --data-urlencode 'to=2026-02-01T00:00:00Z' \
+  http://127.0.0.1:8080/analytics
+```
+
+See the [analytics spec](docs/specs/ledger-analytics.md) for exact response
+semantics, legacy rows, and error behavior.
 
 Run the domain and application tests without Docker:
 

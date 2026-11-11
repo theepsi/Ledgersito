@@ -18,10 +18,11 @@ type TransferService interface {
 	Execute(context.Context, string, transfer.Request) (transfers.Response, error)
 }
 
-func NewRouter(accounts Service, transfers TransferService, history HistoryService, logger *slog.Logger) *Handler {
+func NewRouter(accounts Service, transfers TransferService, history HistoryService, analytics AnalyticsService, logger *slog.Logger) *Handler {
 	h := New(accounts, logger)
 	h.transfers = transfers
 	h.history = history
+	h.analytics = analytics
 	return h
 }
 

@@ -37,6 +37,9 @@ Run the following checks, failing the workflow if any command fails:
   - `go test -tags=integration -count=1 ./internal/adapters/postgres`
   - `go test -tags=integration,initializationcheck -count=1 ./internal/adapters/postgres`
   - `go test -tags=integration,migrationcheck -count=1 -run 'Test(NameMigration|PostedAtMigration)' ./internal/adapters/postgres`
+- The isolated initialization checks cover analytics aggregates, half-open time
+  windows, legacy untimestamped transfers, exact large volumes, read-only
+  behavior, and concurrent snapshots.
 
 The database job must use only the CI service database. Initialization checks
 may create and remove uniquely named schemas as they do locally. No CI command
