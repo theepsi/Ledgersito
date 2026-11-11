@@ -58,3 +58,6 @@ smallest correct behavior, and refactor with passing tests.
   guides, and matching local/CI reference and example validation.
 - [Continuous Integration](ci.md): approved automation for existing quality,
   generation, unit, and PostgreSQL integration checks.
+- [Observability: Health and Readiness](observability-health-readiness.md):
+  draft P3 process-health and database-readiness checks; awaiting review and
+  approval before implementation.
