@@ -146,6 +146,9 @@ UPDATE accounts SET balance = balance + 10 WHERE id = 'legacy-a';
 UPDATE ledger_transactions SET posted = TRUE WHERE id = 'legacy-transfer';`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := tx.Exec(ctx, "SET CONSTRAINTS ALL IMMEDIATE"); err != nil {
+		t.Fatal(err)
+	}
 
 	apply("00005_transaction_posted_at.sql")
 	var migrationTime time.Time
@@ -160,6 +163,9 @@ UPDATE ledger_transactions SET posted = TRUE WHERE id = 'legacy-transfer';`); er
 		t.Fatalf("migration should preserve both old transactions with unknown timestamps, got %d", oldUnknown)
 	}
 
+	if _, err := tx.Exec(ctx, "SET CONSTRAINTS ALL DEFERRED"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO ledger_transactions (id, reference) VALUES ('new-transfer', '');
 INSERT INTO entries (transaction_id, account_id, amount) VALUES
