@@ -284,6 +284,36 @@ errors, unresolved references, and invalid examples. This does **not** prove
 the API matches the document: handler tests and contract review still matter.
 The same command runs in the independent OpenAPI CI job.
 
+### Read the API reference in your browser
+
+`docs/openapi.yaml` is the machine-readable source: it describes paths, request
+fields, response schemas, and errors. Tools can validate it and generate a
+readable view. It is not application code and does not enforce the Go API's
+behavior.
+
+To turn that contract into a browser-readable reference:
+
+```sh
+make docs-openapi
+```
+
+Open `docs/openapi.html` using your browser's Open File command, or on Linux:
+
+```sh
+xdg-open docs/openapi.html
+```
+
+This uses the already-approved pinned Redocly tool, validates first, and bundles
+the viewer scripts with Google Fonts disabled. After the npm tool is cached,
+the HTML can be built and read without a CDN, hosted upload, account, running
+API, or documentation server. It is browsable documentation, not a "Try it out"
+request console.
+
+The generated HTML is gitignored. Edit `docs/openapi.yaml`, not the HTML, and
+rerun `make docs-openapi` after contract changes. Markdown guides remain
+separate explanations of setup and architecture; the HTML is simply a rendered
+view of the existing API contract.
+
 ### Disposable PostgreSQL tests
 
 **Separate, explicit preparation:** Compose does not create `ledger_test`.

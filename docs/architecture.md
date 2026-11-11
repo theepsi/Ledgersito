@@ -41,6 +41,8 @@ The [OpenAPI contract](openapi.yaml) describes HTTP shapes; detailed
 The contract is hand-maintained, not used to generate handlers or served by
 the API. CI validates its structure, references, and examples, not runtime
 conformance automatically.
+`make docs-openapi` renders the same YAML as a local HTML reference; it does
+not generate a second contract or change the runtime API.
 
 ## Exact amounts and fixed supply
 

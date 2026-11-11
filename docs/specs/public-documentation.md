@@ -4,6 +4,8 @@
 
 Approved and implemented. The user approved the documentation scope, local
 and CI validation, and downloading the pinned development-only validator.
+The approved local HTML extension renders that contract for browser reading;
+it does not add a hosted viewer or request console.
 
 Make the existing educational ledger understandable and usable from a fresh
 checkout using tracked documentation alone. Learn how to describe an HTTP
@@ -22,6 +24,7 @@ ledger rules, database schemas, or deployment expectations.
 | `docs/architecture.md` | Public explanation of code boundaries and ledger correctness mechanisms. |
 | `README.md` | Concise entry point linking to the tracked contract and public guides. |
 | `redocly.yaml`, `Makefile`, `.github/workflows/ci.yml` | Matching local and CI validation of the OpenAPI contract and examples. |
+| `make docs-openapi` | Local browser-readable reference generated at ignored `docs/openapi.html` from the YAML contract. |
 
 Keep detailed behavioral specifications in `docs/specs/` as the source of
 truth. The public guides explain those rules without introducing competing
@@ -104,6 +107,23 @@ The local server example is `http://127.0.0.1:8080`. State that authentication
 and authorization are absent; do not declare a fictitious security mechanism
 or imply that this is a production service. No endpoint serves the OpenAPI
 file or an interactive documentation UI.
+
+### Local HTML reference
+
+`docs/openapi.yaml` remains the hand-maintained machine-readable contract.
+`make docs-openapi` validates it first, then uses the same pinned Redocly CLI
+to render `docs/openapi.html`. Edit YAML, not generated HTML, and rerun the
+command after contract changes.
+
+Bundle the viewer scripts into the output and disable Google Fonts so the
+page can be opened locally without a CDN or documentation server. Keep only
+the YAML and build instructions in version control; ignore the exact generated
+HTML path without changing rules for local private guides.
+
+The page provides browsable endpoints, schemas, and examples, not a "Try it
+out" console. No login, hosted upload, API call, new package installation, Go
+runtime change, or CI publication is required. The initial npm tool download
+still requires network access if it is not already cached.
 
 ## Public setup guide
 
@@ -209,6 +229,9 @@ Do not add design proposals for pending roadmap features.
 - Validate the contract semantically with the approved OpenAPI 3.1-capable
   Redocly CLI. YAML parsing alone is not OpenAPI validation. Run
   `make lint-openapi` locally and in its separate CI job.
+- `make docs-openapi` validates and generates a locally openable HTML reference
+  for all five operations. Scripts are inline, Google Fonts are disabled, and
+  `docs/openapi.html` is ignored. Do not hand-maintain a second contract.
 - Cross-check examples with existing HTTP/application tests. Treat any
   conflict as a review finding, not permission to change runtime behavior.
 - Setup instructions match `compose.yaml`, `.env.example`, `go.mod`, the
@@ -225,7 +248,7 @@ Do not add design proposals for pending roadmap features.
 
 ## Non-goals
 
-- Generating handlers, clients, schemas, or documentation from source.
+- Generating handlers, clients, schemas, or the OpenAPI contract from Go source.
 - Swagger UI, hosted documentation, a docs server, or deployment automation.
 - New endpoints, authentication, observability, or ledger functionality.
 - Replacing feature specs, claiming production readiness, or operating on
@@ -244,6 +267,10 @@ Do not add design proposals for pending roadmap features.
   existing handler/application tests and contract review remain necessary.
 - Temporary invalid-reference/example fixtures verify the validator fails
   on errors instead of merely parsing YAML.
+- `make docs-openapi` was built with cached tooling in npm offline mode.
+  Headless Chromium opened the local file and navigated all five operations
+  with external host resolution blocked. Embedded paths match the source YAML;
+  viewer assets are inline and generated HTML is ignored.
 - The setup walkthrough was reviewed against tracked sources, but not executed
   against a new database as part of this documentation change. No developer
   data, services, migrations, initialization, or private local guides were

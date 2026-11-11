@@ -28,6 +28,9 @@ go.work.sum
 # env file
 .env
 
+# Generated OpenAPI reference
+/docs/openapi.html
+
 # Editor/IDE
 # .idea/
 # .vscode/

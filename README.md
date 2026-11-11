@@ -147,3 +147,6 @@ go test -v ./internal/domain/... ./internal/application/...
 - [OpenAPI 3.1 contract](docs/openapi.yaml) (`make lint-openapi` locally and in CI)
 - [Feature specifications](docs/specs/README.md)
 - [Learning roadmap and session handoff](docs/ROADMAP.md)
+
+For browser-readable API documentation, run `make docs-openapi` and open
+`docs/openapi.html`. Edit the YAML contract and regenerate; the HTML is ignored.
