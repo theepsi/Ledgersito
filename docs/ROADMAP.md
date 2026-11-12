@@ -104,8 +104,9 @@ requirements are implied.
   explicit approval; provide explained commands. Tests can run when their
   prerequisites and any schema-setup permission are already available.
 - Do not install from the AUR.
-- Keep docs/DESIGN.md, docs/SETUP.md, and go-ledger-project-startup.md local and
-  untracked. Do not stage, delete, or add ignore rules for them.
+- Use docs/getting-started.md and docs/architecture.md for setup and design.
+  Keep go-ledger-project-startup.md local and untracked; do not stage, delete,
+  or add ignore rules for it.
 - Do not edit applied migrations or reset ledger data to work around failures.
 - Standard integration tests require ledger_test and never prepare it.
   The explicit integration,initializationcheck selector permits migrations and

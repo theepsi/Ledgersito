@@ -33,8 +33,8 @@ report discrepancies rather than silently changing the API or guessing which
 behavior was intended.
 
 Do not read, edit, copy, stage, rename, delete, or add ignore rules for the
-local untracked `docs/DESIGN.md`, `docs/SETUP.md`, or
-`go-ledger-project-startup.md`. Write the public guides from tracked sources.
+local untracked `go-ledger-project-startup.md`. Write the public guides from
+tracked sources.
 Replace README links to the local guides only when the public replacements
 are implemented.
 
