@@ -2,10 +2,10 @@
 
 ## Status
 
-Approved for implementation with the Docker host-networking topology below.
-The Compose configuration and public walkthrough are implemented. Static
-configuration checks are separate from the pending Prometheus semantic and
-live acceptance checks.
+Approved and implemented with the Docker host-networking topology below.
+The user has started Prometheus and reported that local collection works.
+This is a user-reported smoke check, not a claim that every acceptance scenario
+below has been executed.
 
 Approval does not authorize installations, image downloads, container
 execution, service startup, or database preparation. Those remain explicit,
@@ -113,6 +113,15 @@ Scrape health:
 up{job="ledgersito"}
 ```
 
+Completed HTTP requests by route since the API process started, excluding
+scrapes of the exact `/metrics` path:
+
+```promql
+sum by (route) (
+  ledgersito_http_requests_total{job="ledgersito"}
+)
+```
+
 Completed application HTTP requests per second, excluding health/readiness
 traffic to avoid confusing manual probe traffic with application activity:
 
@@ -190,7 +199,7 @@ image downloads, temporary validation containers, and service startup.
 - If an API restart is authorized, confirm old samples remain and new
   counter values reset; demonstrate reset-aware queries without claiming
   exact reconstruction of unsampled traffic.
-- If a Prometheus restart is authorized, reuse the selected data directory
+- If a Prometheus restart is authorized, reuse the selected history volume
   and confirm earlier samples remain within retention.
 - Stopping or removing the observability project preserves its history by
   default. Explicit volume removal deletes only observability history;
@@ -198,9 +207,9 @@ image downloads, temporary validation containers, and service startup.
 - Confirm setup requires no migrations, initialization, database writes,
   tracing changes, or modification of existing API instrumentation.
 
-Manual acceptance checks remain explicitly unexecuted until the necessary
-tools, processes, and permissions are available. Do not install dependencies
-or start services as a side effect of validating this documentation.
+Only checks explicitly recorded below count as executed. Do not install
+dependencies or start, stop, or restart services as a side effect of validating
+this documentation.
 
 ## Setup choices and validation status
 
@@ -208,9 +217,15 @@ The agreed design uses Docker host networking, a 15-second scrape interval,
 5-second timeout, 24-hour retention, and 1 GB size retention. No native
 Prometheus installation or AUR package is needed.
 
-Image acquisition, container execution, and live acceptance checks require
-separate permission. Until then, `promtool` and live checks remain unexecuted;
-static checks alone do not prove successful collection.
+Compose model validation, static scrape YAML/isolation checks, and existing
+HTTP/observability race tests passed during implementation. The user
+subsequently reported Prometheus running and collection working locally.
+
+The assistant has not independently run `promtool` or live acceptance checks.
+Failed-scrape recovery, API/Prometheus restart behavior, retention cleanup,
+and destructive volume cleanup have not been verified in this session.
+Further image acquisition, container execution, or service lifecycle tests
+still require explicit permission.
 
 ## Non-goals
 

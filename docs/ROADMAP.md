@@ -54,6 +54,12 @@ implement every candidate below.
   See the [metrics spec](specs/observability-metrics.md).
 - P3 opt-in local HTTP and storage spans are emitted as structured JSON without
   a collector or new dependency. See the [tracing spec](specs/observability-tracing.md).
+- P3 opt-in Docker Prometheus collection uses Linux host networking, a
+  loopback-only UI, and separate history with 24-hour/1 GB retention. The user
+  reports collection working locally. Setup, queries, stop/start, and cleanup
+  are documented in the [public guide](getting-started.md#collect-metrics-with-prometheus-optional-linux);
+  see the [collection spec](specs/observability-prometheus.md) for scope and
+  validation limits.
 - The user has also tried the account/transfer API and verified analytics
   manually, including existing untimestamped transfers.
 
@@ -62,17 +68,12 @@ implement every candidate below.
 These are recommendations for sequencing, not approval to implement. Draft and
 review one spec at a time before implementation.
 
-1. **P3 — Operational observability:** Add separately specified health/readiness
-   checks, structured logs, request/database latency and error metrics, and
-   tracing. Start with small instrumentation; consider an external
-   collection/dashboard stack only after agreeing on its learning purpose and
-   setup. The first-slice [health/readiness spec](specs/observability-health-readiness.md)
-   and [structured request logging spec](specs/observability-request-logs.md)
-   and [HTTP and storage metrics spec](specs/observability-metrics.md) are
-   approved and implemented. The [local request tracing
-   spec](specs/observability-tracing.md) is also approved and implemented.
-   Keep account IDs and idempotency keys out of metric labels and avoid
-   sensitive telemetry.
+1. **P3 — Operational observability:** The agreed health/readiness, structured
+   logs, HTTP/storage metrics, local tracing, and local Prometheus collection
+   slices are approved and implemented. The current learning slice is complete;
+   no dashboard, alerts, or additional external stack is implied. Any extension
+   needs a separate learning goal and approved spec. Keep account IDs and
+   idempotency keys out of metric labels and avoid sensitive telemetry.
 2. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
    still serves a specific learning goal; defer it until a concrete event
    delivery use case is agreed.

@@ -13,7 +13,7 @@ migrations, or initializes the ledger.
 | Tool | Purpose |
 |---|---|
 | [Go](https://go.dev/doc/install), matching `go.mod` (`1.27.0`) | Build, run, and test the application. |
-| [Docker with Compose](https://docs.docker.com/compose/install/) | Provided local PostgreSQL 17 service; an independently managed PostgreSQL 17 also works. |
+| [Docker with Compose](https://docs.docker.com/compose/install/) | Provided local PostgreSQL 17 service and optional Prometheus container; an independently managed PostgreSQL 17 also works. |
 | [Goose](https://github.com/pressly/goose#install), `v3.29.0` as in CI | Apply versioned SQL migrations. |
 | curl | Send the example HTTP requests. |
 | make | Run the convenience targets in the Makefile, if desired. |
@@ -132,9 +132,10 @@ include business rejections as well as database failures; see the
 
 ## Collect metrics with Prometheus (optional, Linux)
 
-The separate `compose.prometheus.yaml` runs only Prometheus; the normal
-`docker compose up` PostgreSQL workflow does not start it. It uses Linux host
-networking to scrape the API at `127.0.0.1:8080` without changing the API's
+The separate `compose.prometheus.yaml` runs only Prometheus. A plain
+`docker compose up -d --wait` uses `compose.yaml` and starts PostgreSQL only;
+neither Compose project starts the Go API. Prometheus uses Linux host networking
+to scrape the API at `127.0.0.1:8080` without changing the API's
 loopback binding. A bridged container would have a different localhost.
 Host networking shares the host's network namespace; it is not network
 isolation. These instructions target Linux Docker Engine, not Docker Desktop.
@@ -191,8 +192,10 @@ docker compose --env-file /dev/null -f compose.prometheus.yaml logs --tail=50 pr
 ```
 
 Open [target health](http://127.0.0.1:9090/targets) to inspect the `ledgersito`
-job, then use the [query UI](http://127.0.0.1:9090/query). After a successful
-scrape, this query returns `1`:
+job, then use the [query UI](http://127.0.0.1:9090/query). Enter a query and
+select **Table** for current values or **Graph** for changes over time.
+Start with a 15-minute graph range. After a successful scrape, this query
+returns `1`:
 
 ```promql
 up{job="ledgersito"}
@@ -213,8 +216,21 @@ curl -i http://127.0.0.1:8080/prometheus-learning-not-found
 The second request intentionally returns `404`; neither request writes ledger
 data. Allow at least two scrapes (15 seconds apart) after a label combination
 first appears before expecting a rate. Repeat the requests across scrapes
-to see activity rather than only an unchanged counter. For completed HTTP
-requests per second by status class:
+to see activity rather than only an unchanged counter.
+
+**Completed requests by route since the API started** (a count, not a rate):
+
+```promql
+sum by (route) (
+  ledgersito_http_requests_total{job="ledgersito"}
+)
+```
+
+Look for `/accounts` and `unmatched` after the example requests. The latter is
+the fixed route label for unknown paths, not the caller's raw path. Scraping
+does not add a `/metrics` request count.
+
+**Completed HTTP requests per second by status class:**
 
 ```promql
 sum by (status_class) (
@@ -222,12 +238,46 @@ sum by (status_class) (
 )
 ```
 
+The examples should produce `2xx` for a successful account listing and `4xx`
+for the unknown path. A rejected request is not necessarily a server failure.
+`rate(...[5m])` estimates the average per-second increase over five minutes;
+it is not the number of requests in those five minutes.
+
+**Estimated p95 HTTP latency by route, in seconds:**
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le, route) (
+    rate(ledgersito_http_request_duration_seconds_bucket{
+      job="ledgersito"
+    }[5m])
+  )
+)
+```
+
+An estimate of `0.025` means roughly 95% of observed requests for that route
+finished within 25 milliseconds. This is a bucket-based estimate, not the
+duration of an individual request, and is noisy with little traffic.
+
+**Storage attempts per second by operation and outcome:**
+
+```promql
+sum by (operation, outcome) (
+  rate(ledgersito_storage_operations_total{job="ledgersito"}[5m])
+)
+```
+
+A successful account listing adds a `list_accounts`/`success` observation.
+The unknown-path request does not reach storage. You can also send
+`GET /readyz` for a `readiness` observation; `GET /healthz` has no storage
+operation. Storage latency covers the whole adapter call, not individual SQL.
+
 See the [collection spec](specs/observability-prometheus.md#learning-queries)
-for application-only rates, estimated p95 latency, storage-operation rates,
-and interpretation of error fractions. An absent series is not automatically
-zero, idle workloads can produce undefined ratios/quantiles, and storage
-errors include business rejections. Requests and replays are attempts, not
-distinct ledger transactions.
+for application-only rates and interpretation of error fractions. An absent
+series is not automatically zero, idle workloads can produce undefined
+ratios/quantiles, and storage errors include business rejections. Requests and
+replays are attempts, not distinct ledger transactions.
 
 Scrapes themselves do not increment the API's HTTP metrics. They still
 produce existing request logs and, when tracing is enabled, local HTTP spans.
@@ -240,11 +290,26 @@ and delayed cleanup need additional space. API restarts reset counters but
 not collected history; `rate` handles observed resets, not unsampled activity.
 Stopping collection creates gaps that are not backfilled.
 
+**Daily stop/start: keeps the container and its history.** These commands
+affect only Prometheus, not the API or PostgreSQL:
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml stop prometheus
+docker compose --env-file /dev/null -f compose.prometheus.yaml start prometheus
+```
+
+Run the first command to stop and the second when you want to collect again.
+With `restart: "no"`, Prometheus does not automatically start after a reboot.
+After starting it, use the readiness and target-health checks above.
+
 **Stops and removes only Prometheus's container; keeps its history:**
 
 ```sh
 docker compose --env-file /dev/null -f compose.prometheus.yaml down
 ```
+
+After `down`, `start` cannot recreate the container. Use the earlier
+`up -d --pull never prometheus` command instead; it reuses retained history.
 
 **Optional, destructive cleanup: also deletes this project's metrics history.**
 Run only if you no longer want it. Do not substitute the PostgreSQL Compose
@@ -551,6 +616,6 @@ shutdown. Stop the local database without removing its persistent volume:
 docker compose stop postgres
 ```
 
-No volume removal or database reset is part of this guide. Continue with the
-[architecture guide](architecture.md), [feature specs](specs/README.md), and
-[roadmap](ROADMAP.md).
+No PostgreSQL volume removal or database reset is part of this guide. Continue
+with the [architecture guide](architecture.md), [feature specs](specs/README.md),
+and [roadmap](ROADMAP.md).
