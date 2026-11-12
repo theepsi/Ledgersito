@@ -40,7 +40,7 @@ are implemented.
 
 ## OpenAPI contract
 
-Cover seven operations across the six API paths:
+Cover eight operations across the seven API paths:
 
 | Operation | Success | Main behavior |
 |---|---|---|
@@ -51,6 +51,7 @@ Cover seven operations across the six API paths:
 | `GET /analytics` | `200` | Report lifetime or bounded transfer flows and current stock metrics. |
 | `GET /healthz` | `200` | Report process health without depending on PostgreSQL. |
 | `GET /readyz` | `200` | Report readiness only when PostgreSQL is reachable and migration 5 is applied. |
+| `GET /metrics` | `200` | Return process-local operational metrics in Prometheus text format. |
 
 For each operation, describe inputs, success/error schemas, applicable headers,
 examples, and the statuses/codes from its existing feature spec. Use reusable
@@ -64,7 +65,7 @@ numeric representations or all account responses.
   with each route's `Allow` header. HEAD is not an alias for GET.
 - Only analytics accepts query parameters. Document the existing rejection
   rules, including a bare query delimiter and duplicate/unknown parameters.
-  Health and readiness reject all query strings, including a bare `?`.
+  Health, readiness, and metrics reject all query strings, including a bare `?`.
 - Describe the required POST media type, permitted UTF-8 charset, 4096-byte
   body limit, strict request fields, and relevant name/account-ID validation.
 - Explain restrictions OpenAPI schemas cannot fully enforce: duplicate JSON
@@ -90,7 +91,8 @@ numeric representations or all account responses.
 - Document five-second operation deadlines and the existing JSON error
   envelope. A POST timeout does not prove rollback: retry with the same key,
   not a new one. Do not promise that server-wide connection failures use the
-  operation-level JSON envelope.
+  operation-level JSON envelope. Successful `/metrics` output is Prometheus
+  text, not JSON.
 - History includes the opening transaction and does not expose `posted_at`.
   Entry-ID ordering is deterministic but is not commit-time ordering.
 - Analytics requires initialization. Its `period` is either `"lifetime"` or

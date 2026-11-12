@@ -118,6 +118,17 @@ curl -i "$BASE_URL/healthz"
 curl -i "$BASE_URL/readyz"
 ```
 
+Operational counters and latency histograms are available without querying
+the database:
+
+```sh
+curl -i "$BASE_URL/metrics"
+```
+
+They are process-local and reset on API restart. Storage-operation errors
+include business rejections as well as database failures; see the
+[metrics spec](specs/observability-metrics.md).
+
 ## Create and move fictional funds
 
 These POST requests **change the ledger at the API's `DATABASE_URL`**.

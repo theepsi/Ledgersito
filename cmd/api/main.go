@@ -21,6 +21,7 @@ import (
 	"github.com/theepsi/Ledgersito/internal/application/analytics"
 	"github.com/theepsi/Ledgersito/internal/application/history"
 	"github.com/theepsi/Ledgersito/internal/application/transfers"
+	"github.com/theepsi/Ledgersito/internal/observability"
 )
 
 type config struct {
@@ -63,13 +64,14 @@ func run(ctx context.Context, cfg config, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("database startup check failed: %w", err)
 	}
-	store := postgres.NewAPIStore(cfg.database)
+	metrics := observability.NewMetrics()
+	store := postgres.NewInstrumentedAPIStore(cfg.database, metrics)
 	service := accounts.New(randomIDs{}, store)
 	transferService := transfers.New(randomIDs{}, store)
 	historyService := history.New(store)
 	analyticsService := analytics.New(store)
 	server := &http.Server{
-		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, store, logger),
+		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, store, logger).WithMetrics(metrics),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,

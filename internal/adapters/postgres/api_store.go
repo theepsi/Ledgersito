@@ -13,10 +13,12 @@ import (
 	"github.com/theepsi/Ledgersito/internal/application/accounts"
 	"github.com/theepsi/Ledgersito/internal/application/createaccount"
 	"github.com/theepsi/Ledgersito/internal/domain/account"
+	"github.com/theepsi/Ledgersito/internal/observability"
 )
 
 type APIStore struct {
-	config *pgx.ConnConfig
+	config  *pgx.ConnConfig
+	metrics *observability.Metrics
 }
 
 const requiredReadinessMigration int64 = 5
@@ -25,7 +27,18 @@ func NewAPIStore(config *pgx.ConnConfig) *APIStore {
 	return &APIStore{config: config.Copy()}
 }
 
+func NewInstrumentedAPIStore(config *pgx.ConnConfig, metrics *observability.Metrics) *APIStore {
+	return &APIStore{config: config.Copy(), metrics: metrics}
+}
+
+func (s *APIStore) observeStorage(operation string, started time.Time, err *error) {
+	if s.metrics != nil {
+		s.metrics.ObserveStorage(operation, *err, time.Since(started))
+	}
+}
+
 func (s *APIStore) CheckReadiness(ctx context.Context) (err error) {
+	defer s.observeStorage("readiness", time.Now(), &err)
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return fmt.Errorf("connect for readiness check: %w", err)
@@ -60,6 +73,7 @@ func closeConnection(conn *pgx.Conn, result *error) {
 }
 
 func (s *APIStore) CreateOnce(ctx context.Context, key, name string, create func(createaccount.Store) (accounts.Response, error)) (reply accounts.Response, err error) {
+	defer s.observeStorage("create_account", time.Now(), &err)
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return reply, fmt.Errorf("connect for account creation: %w", err)
@@ -110,6 +124,7 @@ func (s *APIStore) CreateOnce(ctx context.Context, key, name string, create func
 }
 
 func (s *APIStore) List(ctx context.Context) (result []accounts.Account, err error) {
+	defer s.observeStorage("list_accounts", time.Now(), &err)
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return nil, err

@@ -16,6 +16,7 @@ import (
 
 	"github.com/theepsi/Ledgersito/internal/application/accounts"
 	"github.com/theepsi/Ledgersito/internal/domain/account"
+	"github.com/theepsi/Ledgersito/internal/observability"
 )
 
 type Service interface {
@@ -30,10 +31,16 @@ type Handler struct {
 	history   HistoryService
 	analytics AnalyticsService
 	readiness ReadinessChecker
+	metrics   *observability.Metrics
 }
 
 func New(service Service, logger *slog.Logger) *Handler {
 	return &Handler{service: service, logger: logger}
+}
+
+func (h *Handler) WithMetrics(metrics *observability.Metrics) *Handler {
+	h.metrics = metrics
+	return h
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +51,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	status := tracked.status
 	if status == 0 {
 		status = http.StatusOK
+	}
+	if h.metrics != nil && (r.URL.Path != "/metrics" || r.URL.RawPath != "") {
+		h.metrics.ObserveHTTP(r.Method, route, status, time.Since(started))
 	}
 	level := slog.LevelInfo
 	if status >= 500 {
@@ -61,6 +71,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/metrics" && r.URL.RawPath == "" && h.metrics != nil {
+		h.serveMetrics(w, r)
+		return
+	}
 	if r.URL.Path == "/healthz" && r.URL.RawPath == "" {
 		h.serveHealth(w, r)
 		return

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -11,6 +12,7 @@ import (
 )
 
 func (s *APIStore) ListTransactions(ctx context.Context) (result []history.Transaction, err error) {
+	defer s.observeStorage("list_transactions", time.Now(), &err)
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return nil, fmt.Errorf("connect for transaction history: %w", err)

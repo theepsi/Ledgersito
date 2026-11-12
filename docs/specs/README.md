@@ -64,5 +64,5 @@ smallest correct behavior, and refactor with passing tests.
 - [Observability: Structured HTTP Request Logs](observability-request-logs.md):
   approved and implemented P3 structured HTTP request completion events with
   low-cardinality route labels and privacy constraints.
-- [Observability: HTTP and Storage Metrics](observability-metrics.md): draft P3
-  measurements and exposition; awaiting review and approval.
+- [Observability: HTTP and Storage Metrics](observability-metrics.md): approved
+  and implemented P3 HTTP and storage-operation metrics.

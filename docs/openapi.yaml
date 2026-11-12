@@ -12,7 +12,8 @@ info:
     return 405 method_not_allowed with the route's Allow header. No redirects
     or documentation-serving endpoint are provided.
 
-    All defined responses use application/json. Application/database operations
+    All defined responses use application/json except the successful /metrics
+    response, which uses Prometheus text format. Application/database operations
     and readiness checks have a five-second deadline; operation expiration
     returns 503 request_timeout and readiness expiration returns 503 not_ready
     if a response can still be sent. Health checks do not access the database.
@@ -41,6 +42,37 @@ tags:
   - name: Operations
     description: Process health and database/schema readiness checks.
 paths:
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags: [Operations]
+      summary: Read process-local operational metrics
+      description: |
+        Return cumulative HTTP and storage-operation counters and duration
+        histograms in Prometheus text format. Values reset when the process
+        restarts. Storage errors include business rejections and are not
+        necessarily PostgreSQL failures. The endpoint does not access the
+        database and is excluded from HTTP metrics. Reject any query string,
+        including a bare ?. Only GET is supported.
+      responses:
+        '200':
+          description: Process-local metrics in Prometheus text format.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP ledgersito_http_requests_total HTTP requests completed.
+                # TYPE ledgersito_http_requests_total counter
+                ledgersito_http_requests_total{method="GET",route="/healthz",status_class="2xx"} 1
+        '400':
+          description: invalid_request for unsupported query strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          $ref: '#/components/responses/GetMethodNotAllowed'
   /healthz:
     get:
       operationId: getHealth

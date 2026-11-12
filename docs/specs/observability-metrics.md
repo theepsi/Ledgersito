@@ -2,21 +2,19 @@
 
 ## Status
 
-Draft — not approved for implementation.
+Approved and implemented.
 
 ## Purpose and scope
 
 Learn how counters and latency distributions describe service behavior over
 time, and how they differ from individual request logs and ledger analytics.
-Propose a small, process-local set of read-only HTTP and PostgreSQL adapter
+Provide a small, process-local set of read-only HTTP and PostgreSQL adapter
 metrics. Reconciliation remains the tool for checking ledger invariants.
 
-This draft proposes a pull-based `/metrics` endpoint in Prometheus text format,
-without requiring a collector, dashboard, or running external service. The
-exposition format and any library/dependency need review before implementation;
-no installation is authorized by this draft.
+Expose a pull-based `/metrics` endpoint in Prometheus text format, without a
+new dependency or requiring a collector, dashboard, or external service.
 
-## Proposed measurements
+## Measurements
 
 Measure durations in seconds using a monotonic clock. Counters and histograms
 are cumulative since process start and reset on restart; they are not durable
@@ -47,7 +45,7 @@ the error count alone identifies a database outage. A retry or successful
 idempotent replay is another attempt, not another ledger transaction.
 Initialization and reconciliation CLI operations are outside this API slice.
 
-## Proposed HTTP exposition
+## HTTP exposition
 
 - `GET /metrics` returns a valid Prometheus text exposition with HTTP and
   adapter-operation counters and duration histograms. It does not access
@@ -64,8 +62,8 @@ Initialization and reconciliation CLI operations are outside this API slice.
 - This endpoint is unauthenticated like the rest of the learning API; keep the
   existing loopback default and do not imply production exposure is safe.
 
-Illustrative observation after one successful health check, using provisional
-names (histogram bucket, sum, and count lines omitted here):
+Illustrative observation after one successful health check (histogram bucket,
+sum, and count lines omitted here):
 
 ```text
 ledgersito_http_requests_total{method="GET",route="/healthz",status_class="2xx"} 1
@@ -73,8 +71,9 @@ ledgersito_http_requests_total{method="GET",route="/healthz",status_class="2xx"}
 
 ## Acceptance scenarios
 
-- A completed request increments exactly one HTTP counter and one histogram
-  observation for its normalized method, route, and status class.
+- A completed request other than one to the exact `/metrics` path increments
+  exactly one HTTP counter and one histogram observation for its normalized
+  method, route, and status class.
 - A readiness check increments both HTTP and readiness adapter observations;
   a health check does not create an adapter observation.
 - Successful, rejected, and failed storage calls are counted once each;
@@ -96,16 +95,17 @@ bounded labels, concurrent updates, histogram observations, and exposition.
 Any optional PostgreSQL integration test must follow the existing
 user-controlled database preparation agreement.
 
-## Decisions for review
+## Metric names and buckets
 
-- Confirm Prometheus text exposition versus another way to inspect metrics,
-  and whether a metrics library is appropriate. Any dependency installation
-  requires separate user permission.
-- Agree final metric names and fixed histogram bucket boundaries before
-  implementation; buckets must include a `+Inf` bucket.
-- Confirm that storage *operation* errors are sufficiently useful as a first
-  learning step, or separately specify instrumentation that distinguishes
-  actual database failures from business and callback errors.
+- `ledgersito_http_requests_total` and
+  `ledgersito_http_request_duration_seconds`, labeled by `method`, `route`,
+  and `status_class`.
+- `ledgersito_storage_operations_total` and
+  `ledgersito_storage_operation_duration_seconds`, labeled by `operation` and
+  `outcome`.
+- Both histograms use cumulative upper bounds of `0.005`, `0.01`, `0.025`,
+  `0.05`, `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, `10`, and `+Inf` seconds.
+- Only observed label combinations are emitted. Scrapes do not create series.
 
 ## Non-goals
 
