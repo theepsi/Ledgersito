@@ -61,3 +61,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Observability: Health and Readiness](observability-health-readiness.md):
   approved and implemented P3 process-health and database/schema-readiness
   checks.
+- [Observability: Structured HTTP Request Logs](observability-request-logs.md):
+  draft P3 request completion events; awaiting review and approval before
+  implementation.
