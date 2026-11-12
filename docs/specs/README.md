@@ -62,5 +62,5 @@ smallest correct behavior, and refactor with passing tests.
   approved and implemented P3 process-health and database/schema-readiness
   checks.
 - [Observability: Structured HTTP Request Logs](observability-request-logs.md):
-  draft P3 request completion events; awaiting review and approval before
-  implementation.
+  approved and implemented P3 structured HTTP request completion events with
+  low-cardinality route labels and privacy constraints.

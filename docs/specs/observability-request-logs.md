@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft — not approved for implementation.
+Approved and implemented.
 
 ## Purpose and scope
 
@@ -22,14 +22,33 @@ for each request handled by the API server.
 
 ## Event fields and privacy
 
-Each completion event has a stable event name and includes:
+Each completion event is one `slog` record with message
+`http request completed` and these stable attributes:
 
-- HTTP method.
+- `event`: `http_request_completed`.
+- `method`: HTTP method.
 - A low-cardinality route label: the matched API path (`/accounts`,
   `/transfers`, `/transactions`, `/analytics`, `/healthz`, or `/readyz`), or
-  `unmatched` for unknown paths.
-- Final HTTP status code.
-- Request duration in milliseconds, measured with a monotonic clock.
+  `unmatched` for paths not handled by an API route (`route`).
+- `status`: final HTTP status code.
+- `duration_ms`: request duration in milliseconds, measured with a monotonic
+  clock.
+
+The existing JSON `slog` handler also supplies its standard `time`, `level`,
+and `msg` fields. For example:
+
+```json
+{
+  "time": "2026-01-01T00:00:00Z",
+  "level": "INFO",
+  "msg": "http request completed",
+  "event": "http_request_completed",
+  "method": "GET",
+  "route": "/healthz",
+  "status": 200,
+  "duration_ms": 0.12
+}
+```
 
 Do not log raw URLs or query strings, request/response bodies, headers,
 account IDs, names, transaction IDs, idempotency keys, database URLs, or client
@@ -56,8 +75,8 @@ panics before completing a response remains outside this specification.
 - Each normal request handled by the API produces exactly one completion event,
   including successful, validation-error, not-found, method-not-allowed, and
   readiness-failure responses.
-- The event contains the method, canonical route label (or `unmatched`),
-  final status, duration, and stable event name.
+- The event contains the specified `event`, `method`, `route`, `status`, and
+  `duration_ms` attributes.
 - Unknown paths and caller-supplied path/query values never appear in the
   route label or as raw URL data.
 - Events are valid structured JSON on the existing stderr log stream.
@@ -71,6 +90,15 @@ Use focused HTTP tests with a captured `slog` output to verify event count,
 fields, severity, duration presence, route normalization, and absence of
 request-provided sensitive values. Do not add log assertions for unrelated
 existing application-error messages.
+
+## Implementation notes
+
+- The handler records the response status while preserving the original
+  response body and headers. It emits the completion event after normal handler
+  return; a panic continues through the standard `net/http` recovery behavior
+  without being converted into a success-shaped completion event.
+- Route labels use only the fixed route names above. URL path values and query
+  strings are never logged.
 
 ## Non-goals
 

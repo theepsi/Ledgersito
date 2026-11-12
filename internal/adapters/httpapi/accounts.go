@@ -37,6 +37,30 @@ func New(service Service, logger *slog.Logger) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	route := h.routeLabel(r)
+	tracked := &responseStatusWriter{ResponseWriter: w}
+	h.serveHTTP(tracked, r)
+	status := tracked.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	level := slog.LevelInfo
+	if status >= 500 {
+		level = slog.LevelError
+	} else if status >= 400 {
+		level = slog.LevelWarn
+	}
+	h.logger.LogAttrs(context.Background(), level, "http request completed",
+		slog.String("event", "http_request_completed"),
+		slog.String("method", r.Method),
+		slog.String("route", route),
+		slog.Int("status", status),
+		slog.Float64("duration_ms", float64(time.Since(started))/float64(time.Millisecond)),
+	)
+}
+
+func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/healthz" && r.URL.RawPath == "" {
 		h.serveHealth(w, r)
 		return
@@ -119,6 +143,52 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.write(w, reply.Status, reply.Body)
+}
+
+func (h *Handler) routeLabel(r *http.Request) string {
+	if r.URL.RawPath != "" {
+		return "unmatched"
+	}
+	switch r.URL.Path {
+	case "/accounts":
+		return "/accounts"
+	case "/transfers":
+		if h.transfers != nil {
+			return "/transfers"
+		}
+	case "/transactions":
+		if h.history != nil {
+			return "/transactions"
+		}
+	case "/analytics":
+		if h.analytics != nil {
+			return "/analytics"
+		}
+	case "/healthz":
+		return "/healthz"
+	case "/readyz":
+		return "/readyz"
+	}
+	return "unmatched"
+}
+
+type responseStatusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *responseStatusWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseStatusWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(body)
 }
 
 func (h *Handler) readPost(w http.ResponseWriter, r *http.Request) ([]byte, string, bool) {
