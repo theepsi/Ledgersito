@@ -49,6 +49,11 @@ implement every candidate below.
 - P3 structured HTTP request completion logs use the existing JSON `slog`
   logger, fixed route labels, status-based severity, and no caller or ledger
   data. See the [request logging spec](specs/observability-request-logs.md).
+- P3 process-local HTTP and storage-operation counters and latency histograms
+  are exposed at `GET /metrics`; storage errors include business rejections.
+  See the [metrics spec](specs/observability-metrics.md).
+- P3 opt-in local HTTP and storage spans are emitted as structured JSON without
+  a collector or new dependency. See the [tracing spec](specs/observability-tracing.md).
 - The user has also tried the account/transfer API and verified analytics
   manually, including existing untimestamped transfers.
 
@@ -63,10 +68,11 @@ review one spec at a time before implementation.
    collection/dashboard stack only after agreeing on its learning purpose and
    setup. The first-slice [health/readiness spec](specs/observability-health-readiness.md)
    and [structured request logging spec](specs/observability-request-logs.md)
-   are approved and implemented. The [HTTP and storage metrics
-   spec](specs/observability-metrics.md) is a draft awaiting review; tracing
-   remains a separate future specification. Keep account IDs and idempotency
-   keys out of metric labels and avoid sensitive telemetry.
+   and [HTTP and storage metrics spec](specs/observability-metrics.md) are
+   approved and implemented. The [local request tracing
+   spec](specs/observability-tracing.md) is also approved and implemented.
+   Keep account IDs and idempotency keys out of metric labels and avoid
+   sensitive telemetry.
 2. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
    still serves a specific learning goal; defer it until a concrete event
    delivery use case is agreed.
