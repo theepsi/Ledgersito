@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -15,7 +14,7 @@ import (
 )
 
 func (s *APIStore) TransferOnce(ctx context.Context, key string, req transfer.Request, execute func(transfers.Store) (transfers.Response, error)) (reply transfers.Response, err error) {
-	defer s.observeStorage("transfer", time.Now(), &err)
+	defer s.observeStorage(ctx, "transfer", &err)()
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return reply, fmt.Errorf("connect for transfer: %w", err)

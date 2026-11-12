@@ -25,8 +25,9 @@ import (
 )
 
 type config struct {
-	address  string
-	database *pgx.ConnConfig
+	address      string
+	database     *pgx.ConnConfig
+	traceEnabled bool
 }
 
 func loadConfig() (config, error) {
@@ -42,7 +43,15 @@ func loadConfig() (config, error) {
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}
-	return config{address: address, database: database}, nil
+	traceEnabled := false
+	switch os.Getenv("TRACE_ENABLED") {
+	case "", "false":
+	case "true":
+		traceEnabled = true
+	default:
+		return config{}, errors.New("TRACE_ENABLED must be true or false")
+	}
+	return config{address: address, database: database, traceEnabled: traceEnabled}, nil
 }
 
 type randomIDs struct{}
@@ -70,8 +79,12 @@ func run(ctx context.Context, cfg config, logger *slog.Logger) error {
 	transferService := transfers.New(randomIDs{}, store)
 	historyService := history.New(store)
 	analyticsService := analytics.New(store)
+	handler := httpapi.NewRouter(service, transferService, historyService, analyticsService, store, logger).WithMetrics(metrics)
+	if cfg.traceEnabled {
+		handler.WithTracer(observability.NewTracer(logger, rand.Reader))
+	}
 	server := &http.Server{
-		Addr: cfg.address, Handler: httpapi.NewRouter(service, transferService, historyService, analyticsService, store, logger).WithMetrics(metrics),
+		Addr: cfg.address, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,

@@ -66,5 +66,5 @@ smallest correct behavior, and refactor with passing tests.
   low-cardinality route labels and privacy constraints.
 - [Observability: HTTP and Storage Metrics](observability-metrics.md): approved
   and implemented P3 HTTP and storage-operation metrics.
-- [Observability: Local Request Tracing](observability-tracing.md): draft P3
-  request and storage spans; awaiting review and approval.
+- [Observability: Local Request Tracing](observability-tracing.md): approved
+  and implemented P3 local HTTP and storage spans.

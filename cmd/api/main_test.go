@@ -6,11 +6,13 @@ import (
 )
 
 func TestConfiguration(t *testing.T) {
+	t.Setenv("TRACE_ENABLED", "")
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("DATABASE_URL", "")
 	if _, err := loadConfig(); err == nil {
 		t.Fatal("missing DATABASE_URL accepted")
 	}
+
 	t.Setenv("DATABASE_URL", "postgres://ledger:ledger@localhost/ledger")
 	config, err := loadConfig()
 	if err != nil || config.address != "127.0.0.1:8080" {
@@ -24,5 +26,33 @@ func TestConfiguration(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://user:secret@host:invalid/db")
 	if _, err := loadConfig(); err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatal("invalid configuration accepted or credential leaked")
+	}
+}
+
+func TestTraceConfiguration(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://ledger:ledger@localhost/ledger")
+	for _, tt := range []struct {
+		value   string
+		enabled bool
+		invalid bool
+	}{
+		{value: ""},
+		{value: "false"},
+		{value: "true", enabled: true},
+		{value: "private-invalid-value", invalid: true},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			t.Setenv("TRACE_ENABLED", tt.value)
+			cfg, err := loadConfig()
+			if tt.invalid {
+				if err == nil || strings.Contains(err.Error(), tt.value) {
+					t.Fatalf("invalid tracing setting not safely rejected: %v", err)
+				}
+				return
+			}
+			if err != nil || cfg.traceEnabled != tt.enabled {
+				t.Fatalf("got traceEnabled=%t, err=%v", cfg.traceEnabled, err)
+			}
+		})
 	}
 }

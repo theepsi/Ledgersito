@@ -31,14 +31,19 @@ func NewInstrumentedAPIStore(config *pgx.ConnConfig, metrics *observability.Metr
 	return &APIStore{config: config.Copy(), metrics: metrics}
 }
 
-func (s *APIStore) observeStorage(operation string, started time.Time, err *error) {
-	if s.metrics != nil {
-		s.metrics.ObserveStorage(operation, *err, time.Since(started))
+func (s *APIStore) observeStorage(ctx context.Context, operation string, err *error) func() {
+	started := time.Now()
+	endSpan := observability.StartStorageSpan(ctx, operation)
+	return func() {
+		endSpan(*err)
+		if s.metrics != nil {
+			s.metrics.ObserveStorage(operation, *err, time.Since(started))
+		}
 	}
 }
 
 func (s *APIStore) CheckReadiness(ctx context.Context) (err error) {
-	defer s.observeStorage("readiness", time.Now(), &err)
+	defer s.observeStorage(ctx, "readiness", &err)()
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return fmt.Errorf("connect for readiness check: %w", err)
@@ -73,7 +78,7 @@ func closeConnection(conn *pgx.Conn, result *error) {
 }
 
 func (s *APIStore) CreateOnce(ctx context.Context, key, name string, create func(createaccount.Store) (accounts.Response, error)) (reply accounts.Response, err error) {
-	defer s.observeStorage("create_account", time.Now(), &err)
+	defer s.observeStorage(ctx, "create_account", &err)()
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return reply, fmt.Errorf("connect for account creation: %w", err)
@@ -124,7 +129,7 @@ func (s *APIStore) CreateOnce(ctx context.Context, key, name string, create func
 }
 
 func (s *APIStore) List(ctx context.Context) (result []accounts.Account, err error) {
-	defer s.observeStorage("list_accounts", time.Now(), &err)
+	defer s.observeStorage(ctx, "list_accounts", &err)()
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return nil, err

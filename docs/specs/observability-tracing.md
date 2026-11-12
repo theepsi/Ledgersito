@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft — not approved for implementation.
+Approved and implemented.
 
 ## Purpose and scope
 
@@ -11,7 +11,7 @@ individual events; metrics summarize many requests; a trace shows the
 relationship between one HTTP request and the storage operation it triggers.
 Reconciliation remains independent of all three.
 
-Propose a small, **single-process** tracing slice for the API:
+Provide a small, **single-process** tracing slice for the API:
 
 - One root span for each handled HTTP request and, when applicable, one child
   span for its outer PostgreSQL adapter operation.
@@ -22,12 +22,12 @@ Propose a small, **single-process** tracing slice for the API:
   trace storage, or installation in this slice. These are potential separate
   future specifications.
 
-These are proposed behaviors for review, not authorization to implement or
-install dependencies.
+No new dependency or collector is required.
 
-## Proposed trace behavior
+## Trace behavior
 
-- Enable tracing only when `TRACE_ENABLED=true`; unset or `false` disables it.
+- Enable tracing only when `TRACE_ENABLED=true`; unset, empty, or `false`
+  disables it.
   Reject any other value at startup with a clear error that does not expose
   configuration values. When disabled, emit no span records and preserve
   existing logs, metrics, and HTTP behavior.
@@ -45,9 +45,11 @@ install dependencies.
 - A storage span covers the outer adapter call from entry through cleanup,
   including connection setup, transaction work, and callbacks. It is not a
   per-SQL span or a measurement of database-server execution time.
-- Record one completed span event per span, with a fixed event name, trace ID,
-  span ID, parent span ID for child spans, span kind/name, start time, duration,
-  and outcome. IDs are opaque and must not encode ledger or caller data.
+- Record one completed span event per span, with `event: span_completed`,
+  `trace_id`, `span_id`, `parent_span_id` for child spans, `span_kind`,
+  `span_name`, UTC `start_time`, `duration_ms`, and `outcome`. The trace ID is
+  32 hexadecimal characters and each span ID is 16. IDs are opaque random
+  values and do not encode ledger or caller data.
 - For the root span, classify HTTP 5xx as `error` and other completed
   responses as `ok`. For storage spans, classify a returned error as `error`
   and no error as `ok`. A storage error can be a business rejection or
@@ -59,7 +61,7 @@ install dependencies.
   payload, transaction semantics, deadlines, idempotency, or existing metrics.
   Synchronous logging can add latency or block if stderr is slow.
 
-The proposed output is structured local span records, **not** an
+The output is structured local span records, **not** an
 OpenTelemetry or distributed-tracing export format. Existing request logs do
 not gain trace IDs in this slice; the trace ID groups the span records.
 
@@ -84,8 +86,8 @@ does not prove that the ledger's balances or invariants are correct.
 
 ## Acceptance scenarios
 
-- Unset or `false` tracing configuration emits no span events; `true` emits
-  them; invalid configuration fails startup without exposing its value.
+- Unset, empty, or `false` tracing configuration emits no span events; `true`
+  emits them; invalid configuration fails startup without exposing its value.
 - A normally completed readiness request yields one HTTP root and one storage
   child with matching trace IDs, distinct span IDs, and the correct parent.
   Health and rejected requests that do not access storage yield only a root.
@@ -106,15 +108,16 @@ captured sink. Cover disabled/enabled configuration, nesting, failures,
 privacy, concurrency, and existing response behavior; use opt-in PostgreSQL
 integration tests only under the existing database-preparation agreement.
 
-## Decisions for review
+## Implementation notes
 
-- Confirm whether local structured span records are the right first learning
-  step, or whether to use OpenTelemetry from the start for interoperable
-  export. Any library installation requires separate user permission.
-- Confirm opt-in-by-default behavior, full sampling when enabled, and whether
-  to trace high-frequency health and metrics requests.
-- Decide whether future tracing should correlate existing request logs or
-  accept external trace context; neither is included in this draft slice.
+- The API emits a child span first and its parent second after the request
+  completes. It buffers at most one storage span per request and does not
+  retain completed traces.
+- If an unexpected second storage span is attempted for a single request, the
+  whole trace is dropped and a generic tracing error is logged rather than
+  emitting a partial trace.
+- Use the [getting-started guide](../getting-started.md#try-local-request-tracing)
+  to enable tracing, make read-only requests, and inspect the resulting records.
 
 ## Non-goals
 

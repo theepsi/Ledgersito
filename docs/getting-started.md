@@ -50,6 +50,7 @@ set +a
 | `DATABASE_URL` | Ledger used by the API, initialization, reconciliation, and explicitly targeted migrations. |
 | `TEST_DATABASE_URL` | Separate disposable database named `ledger_test`; never point it at ledger data. |
 | `HTTP_ADDR` | Optional API listen address, default `127.0.0.1:8080`. |
+| `TRACE_ENABLED` | Optional local request tracing: `true` enables it; unset, empty, or `false` disables it. |
 
 The example URLs use `ledger:ledger` on `localhost`, with database names
 `ledger` and `ledger_test` and `sslmode=disable`. These are local-only example
@@ -128,6 +129,48 @@ curl -i "$BASE_URL/metrics"
 They are process-local and reset on API restart. Storage-operation errors
 include business rejections as well as database failures; see the
 [metrics spec](specs/observability-metrics.md).
+
+## Try local request tracing
+
+Tracing is off by default. To enable it, stop the API if it is already running,
+then restart it in a terminal with the existing database environment loaded:
+
+```sh
+TRACE_ENABLED=true go run ./cmd/api
+```
+
+In another terminal, send these read-only requests:
+
+```sh
+curl -i http://127.0.0.1:8080/healthz
+curl -i http://127.0.0.1:8080/readyz
+```
+
+Look in the API terminal's stderr for JSON records with
+`"event":"span_completed"`. `/healthz` produces an `http /healthz` root
+span. `/readyz` produces a `storage readiness` child followed by an
+`http /readyz` root: their `trace_id` values match, and the child's
+`parent_span_id` matches the root's `span_id`. Each span includes
+`start_time`, `duration_ms`, and an `ok` or `error` outcome. Readiness can
+return an error if its database or migration check fails.
+
+For example, the readiness span records look like this (IDs and timings vary):
+
+```json
+{"time":"2026-01-01T10:00:00.010Z","level":"INFO","msg":"trace span completed","event":"span_completed","trace_id":"11111111111111111111111111111111","span_id":"2222222222222222","span_kind":"storage","span_name":"storage readiness","start_time":"2026-01-01T10:00:00.001Z","duration_ms":9,"outcome":"ok","parent_span_id":"3333333333333333"}
+{"time":"2026-01-01T10:00:00.010Z","level":"INFO","msg":"trace span completed","event":"span_completed","trace_id":"11111111111111111111111111111111","span_id":"3333333333333333","span_kind":"http","span_name":"http /readyz","start_time":"2026-01-01T10:00:00Z","duration_ms":10,"outcome":"ok"}
+```
+
+Tracing is sampled for every handled request while enabled, including health
+checks and `/metrics`, and may produce substantial stderr output. These local
+span records are not OpenTelemetry exports; they are not saved after the
+terminal output is lost unless you separately capture it. Span records exclude
+caller and ledger values, but existing diagnostic logs are separate; consider
+their contents before sharing or saving logs.
+
+To turn tracing off, stop the API and restart it with
+`TRACE_ENABLED=false go run ./cmd/api`, or leave `TRACE_ENABLED` unset.
+See the [tracing spec](specs/observability-tracing.md) for behavior and limits.
 
 ## Create and move fictional funds
 

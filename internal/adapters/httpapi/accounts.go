@@ -32,6 +32,7 @@ type Handler struct {
 	analytics AnalyticsService
 	readiness ReadinessChecker
 	metrics   *observability.Metrics
+	tracer    *observability.Tracer
 }
 
 func New(service Service, logger *slog.Logger) *Handler {
@@ -43,9 +44,20 @@ func (h *Handler) WithMetrics(metrics *observability.Metrics) *Handler {
 	return h
 }
 
+func (h *Handler) WithTracer(tracer *observability.Tracer) *Handler {
+	h.tracer = tracer
+	return h
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	route := h.routeLabel(r)
+	var trace *observability.Trace
+	if h.tracer != nil {
+		ctx, startedTrace := h.tracer.StartRequest(r.Context(), route)
+		trace = startedTrace
+		r = r.WithContext(ctx)
+	}
 	tracked := &responseStatusWriter{ResponseWriter: w}
 	h.serveHTTP(tracked, r)
 	status := tracked.status
@@ -55,6 +67,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.metrics != nil && (r.URL.Path != "/metrics" || r.URL.RawPath != "") {
 		h.metrics.ObserveHTTP(r.Method, route, status, time.Since(started))
 	}
+	trace.End(status)
 	level := slog.LevelInfo
 	if status >= 500 {
 		level = slog.LevelError

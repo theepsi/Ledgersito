@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -13,7 +12,7 @@ import (
 )
 
 func (s *APIStore) Summarize(ctx context.Context, window *analytics.Window) (snapshot analytics.Snapshot, err error) {
-	defer s.observeStorage("analytics", time.Now(), &err)
+	defer s.observeStorage(ctx, "analytics", &err)()
 	conn, err := pgx.ConnectConfig(ctx, s.config)
 	if err != nil {
 		return snapshot, fmt.Errorf("connect for ledger analytics: %w", err)
