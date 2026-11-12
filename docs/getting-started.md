@@ -130,6 +130,133 @@ They are process-local and reset on API restart. Storage-operation errors
 include business rejections as well as database failures; see the
 [metrics spec](specs/observability-metrics.md).
 
+## Collect metrics with Prometheus (optional, Linux)
+
+The separate `compose.prometheus.yaml` runs only Prometheus; the normal
+`docker compose up` PostgreSQL workflow does not start it. It uses Linux host
+networking to scrape the API at `127.0.0.1:8080` without changing the API's
+loopback binding. A bridged container would have a different localhost.
+Host networking shares the host's network namespace; it is not network
+isolation. These instructions target Linux Docker Engine, not Docker Desktop.
+
+The pinned image is `prom/prometheus:v3.13.5`. Prometheus needs no database
+credentials, migrations, initialization, tracing changes, or new Go dependency.
+Its UI listens only on `127.0.0.1:9090`. If you change `HTTP_ADDR`, explicitly
+update the target in `observability/prometheus.yml` to match, keeping it local.
+
+Commands below use the separate `ledgersito-observability` project declared in
+the file. Do not merge it with `compose.yaml` or override its project name
+through `COMPOSE_PROJECT_NAME` or `-p`. `--env-file /dev/null` avoids loading
+the database `.env` for this independent setup.
+
+**Checks the Compose model only; no download or container startup:**
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml config --quiet
+```
+
+**Downloads the pinned image**, only when you choose to acquire it:
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml pull prometheus
+```
+
+**Runs a temporary validation container, not the Prometheus server.**
+The read-only config mount, disabled networking, and explicit entrypoint check
+the scrape config without attaching the history volume. `--pull=never` fails
+if you have not acquired the image. No native `promtool` installation is needed.
+
+```sh
+docker run --rm --pull=never --network=none \
+  --mount type=bind,source="$(pwd)/observability/prometheus.yml",target=/etc/prometheus/prometheus.yml,readonly \
+  --entrypoint /bin/promtool \
+  prom/prometheus:v3.13.5 check config /etc/prometheus/prometheus.yml
+```
+
+**Starts Prometheus and creates its dedicated history volume** if absent.
+It does not start or restart the API or PostgreSQL. Start the API separately
+only when desired, using the existing instructions.
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml up -d --pull never prometheus
+docker compose --env-file /dev/null -f compose.prometheus.yaml ps
+curl --fail --show-error http://127.0.0.1:9090/-/ready
+```
+
+If the readiness request fails, inspect the container logs and retry once it
+has finished starting; a running container alone does not prove readiness:
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml logs --tail=50 prometheus
+```
+
+Open [target health](http://127.0.0.1:9090/targets) to inspect the `ledgersito`
+job, then use the [query UI](http://127.0.0.1:9090/query). After a successful
+scrape, this query returns `1`:
+
+```promql
+up{job="ledgersito"}
+```
+
+`up` describes scrape success, not database readiness or ledger correctness.
+The API's `/metrics` does not access PostgreSQL. If the API is unavailable,
+the target should report `DOWN` and an attempted scrape produces `up = 0`.
+Do not stop the API or PostgreSQL merely to reproduce that state.
+
+To populate a small read-only example while the API is running:
+
+```sh
+curl -i http://127.0.0.1:8080/accounts
+curl -i http://127.0.0.1:8080/prometheus-learning-not-found
+```
+
+The second request intentionally returns `404`; neither request writes ledger
+data. Allow at least two scrapes (15 seconds apart) after a label combination
+first appears before expecting a rate. Repeat the requests across scrapes
+to see activity rather than only an unchanged counter. For completed HTTP
+requests per second by status class:
+
+```promql
+sum by (status_class) (
+  rate(ledgersito_http_requests_total{job="ledgersito"}[5m])
+)
+```
+
+See the [collection spec](specs/observability-prometheus.md#learning-queries)
+for application-only rates, estimated p95 latency, storage-operation rates,
+and interpretation of error fractions. An absent series is not automatically
+zero, idle workloads can produce undefined ratios/quantiles, and storage
+errors include business rejections. Requests and replays are attempts, not
+distinct ledger transactions.
+
+Scrapes themselves do not increment the API's HTTP metrics. They still
+produce existing request logs and, when tracing is enabled, local HTTP spans.
+Prometheus collects neither logs nor spans.
+
+History is held outside the worktree in the dedicated named volume
+`ledgersito-observability_prometheus_data`. Retention is 24 hours or 1 GB,
+whichever applies first. **1 GB is not a hard total-disk cap:** head/WAL files
+and delayed cleanup need additional space. API restarts reset counters but
+not collected history; `rate` handles observed resets, not unsampled activity.
+Stopping collection creates gaps that are not backfilled.
+
+**Stops and removes only Prometheus's container; keeps its history:**
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml down
+```
+
+**Optional, destructive cleanup: also deletes this project's metrics history.**
+Run only if you no longer want it. Do not substitute the PostgreSQL Compose
+file or run its volume-removal command.
+
+```sh
+docker compose --env-file /dev/null -f compose.prometheus.yaml down --volumes
+```
+
+The downloaded image remains cached after cleanup. Image removal is a separate
+Docker action; this workflow does not prune images or unrelated resources.
+
 ## Try local request tracing
 
 Tracing is off by default. To enable it, stop the API if it is already running,

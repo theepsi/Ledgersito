@@ -69,5 +69,6 @@ smallest correct behavior, and refactor with passing tests.
 - [Observability: Local Request Tracing](observability-tracing.md): approved
   and implemented P3 local HTTP and storage spans.
 - [Observability: Local Prometheus Collection](observability-prometheus.md):
-  draft P3 local metrics collection and PromQL learning workflow; not approved
-  for implementation or service setup.
+  approved P3 Docker-based local metrics collection and PromQL learning
+  workflow. Configuration and walkthrough implemented; Prometheus semantic
+  validation and live acceptance checks await user-controlled setup.

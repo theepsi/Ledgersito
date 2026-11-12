@@ -2,12 +2,14 @@
 
 ## Status
 
-Draft for discussion. Not approved for implementation or service setup.
+Approved for implementation with the Docker host-networking topology below.
+The Compose configuration and public walkthrough are implemented. Static
+configuration checks are separate from the pending Prometheus semantic and
+live acceptance checks.
 
-The proposed topology is a native, manually started local Prometheus process.
-This is a recommendation, not an agreed installation choice. Confirm or revise
-it with the user before implementation. Approval of this spec would not itself
-authorize installations, downloads, service startup, or database preparation.
+Approval does not authorize installations, image downloads, container
+execution, service startup, or database preparation. Those remain explicit,
+user-controlled actions.
 
 ## Purpose and scope
 
@@ -25,10 +27,15 @@ Operational measurements do not replace ledger analytics or reconciliation.
 Counters describe attempts, including retries and idempotent replays, rather
 than distinct committed transactions.
 
-## Proposed local topology
+## Local topology
 
 - The API continues running on its existing default `127.0.0.1:8080`.
-- One native Prometheus process on the same host scrapes that address.
+- One Prometheus container uses Linux host networking to scrape that address.
+  Pin the official image to `prom/prometheus:v3.13.5`, the LTS patch selected
+  for this slice, rather than a floating tag.
+- Keep it opt-in through the standalone `compose.prometheus.yaml` file, with
+  project name `ledgersito-observability`, separate from the existing
+  PostgreSQL Compose project. Do not merge the two files for startup or cleanup.
 - Prometheus listens explicitly on `127.0.0.1:9090`, not all interfaces.
   Its built-in targets and query pages are the only UI in this slice.
 - Startup and shutdown are manual. Do not install an operating-system service,
@@ -38,15 +45,16 @@ than distinct committed transactions.
   no automatic discovery or API binding change is introduced.
 
 A bridged Docker container's `127.0.0.1` is not the host's loopback interface.
-Do not solve that mismatch by exposing the unauthenticated API on all
-interfaces. If the user prefers Docker, revise the topology before approval:
-Linux host networking is an option, but is platform-specific and would need an
-explicitly opt-in service. The existing PostgreSQL Compose workflow stays
-unchanged in this proposal.
+Host networking shares the host's network namespace instead: software and
+storage are container-managed, but network isolation is not provided. This
+slice targets Linux Docker Engine, not a portable Docker Desktop setup.
+Do not expose the unauthenticated API on all interfaces to work around
+networking differences. The existing PostgreSQL Compose workflow is unchanged.
 
 ## Collection contract
 
-Provide a small tracked example configuration during implementation, with:
+Provide the tracked configuration at `observability/prometheus.yml`, mounted
+read-only into the container, with:
 
 - One static job named `ledgersito`.
 - One target, `127.0.0.1:8080`, using HTTP and `/metrics`, with no query string.
@@ -76,15 +84,16 @@ change those behaviors in this slice.
 
 ## Local history and resource behavior
 
-- Propose a 24-hour time retention and a 1 GB TSDB size retention, both set
-  explicitly in documented startup arguments. Either retention limit may
+- Use a 24-hour time retention and a 1 GB TSDB size retention, both set
+  explicitly in the Compose command arguments. Either retention limit may
   shorten available history.
 - Document that size retention is not a hard cap on total disk consumption:
   head/WAL data and retention cleanup timing require additional disk space.
-- Use an explicitly selected local data directory outside tracked source
-  files. Do not commit samples, logs, downloaded binaries, or machine-specific
-  paths; do not alter ignore rules for private guides.
-- Restarting Prometheus with the same data directory retains collected history
+- Store history at `/prometheus` in the dedicated Compose-managed
+  `prometheus_data` named volume, outside the worktree. Do not commit samples,
+  logs, downloaded binaries, or machine-specific paths; do not alter ignore
+  rules for private guides.
+- Restarting Prometheus with the same volume retains collected history
   within retention limits. Deleting its data is a separate, user-controlled
   action, never a setup or troubleshooting prerequisite.
 - Restarting the API resets its process-local counters. Prometheus retains
@@ -157,12 +166,14 @@ observations.
 
 ## Acceptance scenarios and validation
 
-Implementation should provide a tracked example config and public walkthrough,
-linked from the existing setup documentation. The walkthrough must distinguish
-commands for reviewing configuration from commands that start processes.
+Provide a tracked config and public walkthrough in the existing setup
+documentation. The walkthrough must distinguish configuration review from
+image downloads, temporary validation containers, and service startup.
 
-- Validate the example configuration with `promtool check config` from the
-  user-approved Prometheus distribution before claiming it is runnable.
+- Validate the Compose model with `docker compose config`, without starting
+  services. Validate the scrape configuration with `promtool check config`
+  from the pinned image once image download and a temporary validation
+  container are authorized, before claiming semantic validation passed.
 - With user-authorized processes running, confirm Prometheus's listener is
   loopback-only, and its target page reports the configured job and address.
 - After successful scrapes, `up{job="ledgersito"}` is `1`, and API metric
@@ -181,6 +192,9 @@ commands for reviewing configuration from commands that start processes.
   exact reconstruction of unsampled traffic.
 - If a Prometheus restart is authorized, reuse the selected data directory
   and confirm earlier samples remain within retention.
+- Stopping or removing the observability project preserves its history by
+  default. Explicit volume removal deletes only observability history;
+  PostgreSQL's container and data volume are not part of this Compose model.
 - Confirm setup requires no migrations, initialization, database writes,
   tracing changes, or modification of existing API instrumentation.
 
@@ -188,13 +202,15 @@ Manual acceptance checks remain explicitly unexecuted until the necessary
 tools, processes, and permissions are available. Do not install dependencies
 or start services as a side effect of validating this documentation.
 
-## Decisions to confirm before approval
+## Setup choices and validation status
 
-- Native local process versus an explicitly specified container alternative.
-- Proposed 15-second interval, 5-second timeout, 24-hour retention, and 1 GB
-  size retention.
-- User-selected distribution/version, acquisition method, and local data
-  directory. Do not use the AUR or infer installation permission.
+The agreed design uses Docker host networking, a 15-second scrape interval,
+5-second timeout, 24-hour retention, and 1 GB size retention. No native
+Prometheus installation or AUR package is needed.
+
+Image acquisition, container execution, and live acceptance checks require
+separate permission. Until then, `promtool` and live checks remain unexecuted;
+static checks alone do not prove successful collection.
 
 ## Non-goals
 
