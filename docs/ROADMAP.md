@@ -63,9 +63,10 @@ review one spec at a time before implementation.
    collection/dashboard stack only after agreeing on its learning purpose and
    setup. The first-slice [health/readiness spec](specs/observability-health-readiness.md)
    and [structured request logging spec](specs/observability-request-logs.md)
-   are approved and implemented. Request/database latency and error metrics
-   and tracing remain separate future specifications. Keep account IDs and
-   idempotency keys out of metric labels and avoid sensitive telemetry.
+   are approved and implemented. The [HTTP and storage metrics
+   spec](specs/observability-metrics.md) is a draft awaiting review; tracing
+   remains a separate future specification. Keep account IDs and idempotency
+   keys out of metric labels and avoid sensitive telemetry.
 2. **P4 — Transactional outbox:** Explore repeated-delivery safety only if it
    still serves a specific learning goal; defer it until a concrete event
    delivery use case is agreed.
